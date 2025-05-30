@@ -10,16 +10,23 @@ type SyncRequest struct {
 	Modules []Module `json:"modules"`
 }
 
-func Sync(w http.ResponseWriter, req *http.Request) {
+func (a *App) Sync(w http.ResponseWriter, req *http.Request) {
 	var body SyncRequest
 	if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
+	ctx := req.Context()
+
 	for _, module := range body.Modules {
 		for _, service := range module.Services {
-			fmt.Printf("service %s/%s: %s\n", module.Name, service.Name, *service.Image.Atom.String)
+			fmt.Printf("deploying service %s/%s\n", module.Name, service.Name)
+
+			err := service.Deploy(ctx, a.clientset, module.Name)
+			if err != nil {
+				fmt.Printf("failed to deploy service: %s\n", err)
+			}
 		}
 	}
 

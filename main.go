@@ -3,9 +3,24 @@ package main
 import (
 	"fmt"
 	"net/http"
+
+	"k8s.io/client-go/kubernetes"
 )
 
+type App struct {
+	clientset *kubernetes.Clientset
+}
+
 func main() {
+	clientset, err := NewClientset()
+	if err != nil {
+		panic(err)
+	}
+
+	app := App{
+		clientset: clientset,
+	}
+
 	r := NewRouter()
 	r = *r.Use(log)
 
@@ -15,7 +30,7 @@ func main() {
 				fmt.Fprint(w, "pong")
 			})
 
-			r.Post("/state", Sync)
+			r.Post("/state", app.Sync)
 		})
 	})
 

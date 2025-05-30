@@ -3,26 +3,26 @@ POST 127.0.0.1:8080/api/v1/state
 {
   "modules": [
     {
-      "name": "my_module1",
+      "name": "my-module1",
       "services": [
         {
-          "name": "my_service",
+          "name": "my-service",
           "image": {
             "atom": {
-              "string": "hello@sha256:447303ce841432eed82c13be6fd12d68127671500358bc41b1cd734e3f43b50e"
+              "string": "hello-world@sha256:dd01f97f252193ae3210da231b1dca0cffab4aadb3566692d6730bf93f123a48"
             }
           }
         }
       ]
     },
     {
-      "name": "my_module2",
+      "name": "my-module2",
       "services": [
         {
-          "name": "my_service",
+          "name": "my-service",
           "image": {
             "atom": {
-              "string": "hello@sha256:447303ce841432eed82c13be6fd12d68127671500358bc41b1cd734e3f43b50e"
+              "string": "hello-world@sha256:dd01f97f252193ae3210da231b1dca0cffab4aadb3566692d6730bf93f123a48"
             }
           }
         }
