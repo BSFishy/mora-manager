@@ -30,7 +30,7 @@ func main() {
 				fmt.Fprint(w, "pong")
 			})
 
-			r.Post("/state", app.Sync)
+			r.Post("/deployment", app.Sync)
 		})
 	})
 

@@ -29,7 +29,7 @@ func (s *Service) EvaluateImage() string {
 }
 
 func (s *Service) Deploy(ctx context.Context, clientset *kubernetes.Clientset, moduleName string) error {
-	name := fmt.Sprintf("%s-%s", moduleName, s.Name)
+	name := sanitizeDNS1123Subdomain(fmt.Sprintf("%s-%s", moduleName, s.Name))
 	podspec := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -38,7 +38,7 @@ func (s *Service) Deploy(ctx context.Context, clientset *kubernetes.Clientset, m
 		Spec: corev1.PodSpec{
 			Containers: []corev1.Container{
 				{
-					Name:  s.Name,
+					Name:  sanitizeDNS1123Label(s.Name),
 					Image: s.EvaluateImage(),
 				},
 			},
