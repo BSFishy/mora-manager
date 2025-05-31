@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/a-h/templ"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -33,6 +34,8 @@ func main() {
 			r.Post("/deployment", app.Sync)
 		})
 	})
+
+	r.HandleGet("/", templ.Handler(hello("John")))
 
 	r.ListenAndServe(":8080")
 }

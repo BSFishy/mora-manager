@@ -2,10 +2,16 @@
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
+    templ.url = "github:a-h/templ";
   };
 
   outputs =
-    { nixpkgs, flake-utils, ... }:
+    {
+      nixpkgs,
+      flake-utils,
+      templ,
+      ...
+    }:
     flake-utils.lib.eachDefaultSystem (
       system:
       let
@@ -18,6 +24,7 @@
               pkgs.go
               pkgs.k9s
               pkgs.just
+              templ.packages.${system}.templ
             ];
           };
         };

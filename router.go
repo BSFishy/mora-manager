@@ -36,8 +36,8 @@ func (r *Router) Use(m ...Middleware) *Router {
 	}
 }
 
-func (r *Router) Register(method string, path string, handler http.HandlerFunc) {
-	Assert(len(path) >= 2, "path must not be empty")
+func (r *Router) Register(method, path string, handler http.HandlerFunc) {
+	Assert(len(path) >= 1, "path must not be empty")
 	Assert(strings.HasPrefix(path, "/"), "path must start with /")
 
 	wrapped := handler
@@ -49,8 +49,25 @@ func (r *Router) Register(method string, path string, handler http.HandlerFunc) 
 	r.mux.HandleFunc(fmt.Sprintf("%s %s", method, handlerPath), wrapped)
 }
 
+func (r *Router) Handle(method, path string, handle http.Handler) {
+	Assert(len(path) >= 1, "path must not be empty")
+	Assert(strings.HasPrefix(path, "/"), "path must start with /")
+
+	wrapped := handle
+	for i := len(r.middlewares) - 1; i >= 0; i-- {
+		wrapped = r.middlewares[i](wrapped).(http.HandlerFunc)
+	}
+
+	handlerPath := fmt.Sprintf("%s/%s", r.path, path[1:])
+	r.mux.Handle(fmt.Sprintf("%s %s", method, handlerPath), wrapped)
+}
+
 func (r *Router) Get(path string, handler http.HandlerFunc) {
 	r.Register("GET", path, handler)
+}
+
+func (r *Router) HandleGet(path string, handle http.Handler) {
+	r.Handle("GET", path, handle)
 }
 
 func (r *Router) Post(path string, handler http.HandlerFunc) {
@@ -58,7 +75,7 @@ func (r *Router) Post(path string, handler http.HandlerFunc) {
 }
 
 func (r *Router) Route(path string) *Router {
-	Assert(len(path) >= 2, "path must not be empty")
+	Assert(len(path) >= 1, "path must not be empty")
 	Assert(strings.HasPrefix(path, "/"), "path must start with /")
 
 	return &Router{
