@@ -13,6 +13,8 @@ type App struct {
 }
 
 func main() {
+	SetupLogger()
+
 	clientset, err := NewClientset()
 	if err != nil {
 		panic(err)

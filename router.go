@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strings"
 )
@@ -23,7 +24,7 @@ func NewRouter() Router {
 }
 
 func (r *Router) ListenAndServe(addr string) error {
-	fmt.Printf("Listening on %s\n", addr)
+	slog.Info("listening for requests", "addr", addr)
 
 	return http.ListenAndServe(addr, r.mux)
 }
