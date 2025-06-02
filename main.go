@@ -1,12 +1,16 @@
 package main
 
 import (
+	"embed"
 	"fmt"
 	"net/http"
 
 	"github.com/a-h/templ"
 	"k8s.io/client-go/kubernetes"
 )
+
+//go:embed all:assets
+var assets embed.FS
 
 type App struct {
 	clientset *kubernetes.Clientset
@@ -37,7 +41,8 @@ func main() {
 		})
 	})
 
-	r.HandleGet("/", templ.Handler(hello("John")))
+	r.HandleGet("/", templ.Handler(index()))
+	r.HandleGet("/assets/", http.FileServerFS(assets))
 
 	r.ListenAndServe(":8080")
 }

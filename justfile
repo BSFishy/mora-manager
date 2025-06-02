@@ -4,4 +4,4 @@ default:
 
 # run the server in development mode
 dev:
-  @go run .
+  @templ generate --watch --proxy="http://localhost:8080" --cmd="go run ."

@@ -1,0 +1,22 @@
+package main
+
+templ passwordInput(attrs templ.Attributes) {
+	@input("password", attrs)
+}
+
+templ input(inputType string, attrs templ.Attributes) {
+	<input
+		type={ inputType }
+		class={ bg(emerald[50]), borderWidth("3px"), borderColor(emerald[600]), rounded(radius["md"]), px(4), py(2) }
+		{ attrs... }
+	/>
+}
+
+templ submit() {
+	<button
+		type="submit"
+		class={ cursorPointer(), bg(emerald[600]), px(4), py(2), rounded(radius["md"]), color(emerald[50]) }
+	>
+		{ children... }
+	</button>
+}
