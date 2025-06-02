@@ -1,8 +1,8 @@
-package main
+package styles
 
 import "fmt"
 
-var radius = map[string]string{
+var Radius = map[string]string{
 	"xs":  "0.125rem",
 	"sm":  "0.25rem",
 	"md":  "0.375rem",
@@ -47,31 +47,31 @@ var lineHeight = map[string]float64{
 
 var spacing = 0.25
 
-css rounded(size string) {
+css Rounded(size string) {
 	border-radius: { size };
 }
 
-css px(size float64) {
+css Px(size float64) {
 	padding-inline: { templ.SafeCSSProperty(fmt.Sprintf("%frem", size * spacing)) };
 }
 
-css py(size float64) {
+css Py(size float64) {
 	padding-block: { templ.SafeCSSProperty(fmt.Sprintf("%frem", size * spacing)) };
 }
 
-css mx(size float64) {
+css Mx(size float64) {
 	margin-inline: { templ.SafeCSSProperty(fmt.Sprintf("%frem", size * spacing)) };
 }
 
-css my(size float64) {
+css My(size float64) {
 	margin-block: { templ.SafeCSSProperty(fmt.Sprintf("%frem", size * spacing)) };
 }
 
-css gap(size float64) {
+css Gap(size float64) {
 	gap: { templ.SafeCSSProperty(fmt.Sprintf("%frem", size * spacing)) };
 }
 
-css textSize(size string) {
+css TextSize(size string) {
 	font-size: { text[size] };
 	line-height: { templ.SafeCSSProperty(fmt.Sprintf("%f", lineHeight[size])) };
 }

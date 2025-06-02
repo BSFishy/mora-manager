@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/BSFishy/mora-manager/templates"
 	"github.com/a-h/templ"
 	"k8s.io/client-go/kubernetes"
 )
@@ -51,7 +52,7 @@ func main() {
 		w.WriteHeader(http.StatusTemporaryRedirect)
 	})
 
-	r.HandleGet("/secret", templ.Handler(secret()))
+	r.HandleGet("/secret", templ.Handler(templates.Secret()))
 	r.HandleGet("/assets/", http.FileServerFS(assets))
 
 	r.ListenAndServe(":8080")

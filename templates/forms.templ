@@ -1,0 +1,24 @@
+package templates
+
+import "github.com/BSFishy/mora-manager/templates/styles"
+
+templ passwordInput(attrs templ.Attributes) {
+	@input("password", attrs)
+}
+
+templ input(inputType string, attrs templ.Attributes) {
+	<input
+		type={ inputType }
+		class={ styles.Bg(styles.Emerald[50]), styles.BorderWidth("3px"), styles.BorderColor(styles.Emerald[600]), styles.Rounded(styles.Radius["md"]), styles.Px(4), styles.Py(2), attrs["class"] }
+		{ attrs... }
+	/>
+}
+
+templ submit() {
+	<button
+		type="submit"
+		class={ styles.CursorPointer(), styles.Bg(styles.Emerald[600]), styles.Px(4), styles.Py(2), styles.Rounded(styles.Radius["md"]), styles.Color(styles.Emerald[50]), styles.Weight("bold") }
+	>
+		{ children... }
+	</button>
+}

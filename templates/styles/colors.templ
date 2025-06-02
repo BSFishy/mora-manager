@@ -1,6 +1,6 @@
-package main
+package styles
 
-var pink = map[int]string{
+var Pink = map[int]string{
 	50:  "oklch(0.971 0.014 343.198)",
 	100: "oklch(0.948 0.028 342.258)",
 	200: "oklch(0.899 0.061 343.231)",
@@ -14,7 +14,7 @@ var pink = map[int]string{
 	950: "oklch(0.284 0.109 3.907)",
 }
 
-var slate = map[int]string{
+var Slate = map[int]string{
 	50:  "oklch(0.984 0.003 247.858)",
 	100: "oklch(0.968 0.007 247.896)",
 	200: "oklch(0.929 0.013 255.508)",
@@ -28,7 +28,7 @@ var slate = map[int]string{
 	950: "oklch(0.129 0.042 264.695)",
 }
 
-var zinc = map[int]string{
+var Zinc = map[int]string{
 	50:  "oklch(0.985 0 0)",
 	100: "oklch(0.967 0.001 286.375)",
 	200: "oklch(0.92 0.004 286.32)",
@@ -42,7 +42,7 @@ var zinc = map[int]string{
 	950: "oklch(0.141 0.005 285.823)",
 }
 
-var stone = map[int]string{
+var Stone = map[int]string{
 	50:  "oklch(0.985 0.001 106.423)",
 	100: "oklch(0.97 0.001 106.424)",
 	200: "oklch(0.923 0.003 48.717)",
@@ -56,7 +56,7 @@ var stone = map[int]string{
 	950: "oklch(0.147 0.004 49.25)",
 }
 
-var orange = map[int]string{
+var Orange = map[int]string{
 	50:  "oklch(0.98 0.016 73.684)",
 	100: "oklch(0.954 0.038 75.164)",
 	200: "oklch(0.901 0.076 70.697)",
@@ -70,7 +70,7 @@ var orange = map[int]string{
 	950: "oklch(0.266 0.079 36.259)",
 }
 
-var yellow = map[int]string{
+var Yellow = map[int]string{
 	50:  "oklch(0.987 0.026 102.212)",
 	100: "oklch(0.973 0.071 103.193)",
 	200: "oklch(0.945 0.129 101.54)",
@@ -84,7 +84,7 @@ var yellow = map[int]string{
 	950: "oklch(0.286 0.066 53.813)",
 }
 
-var lime = map[int]string{
+var Lime = map[int]string{
 	50:  "oklch(0.986 0.031 120.757)",
 	100: "oklch(0.967 0.067 122.328)",
 	200: "oklch(0.938 0.127 124.321)",
@@ -98,7 +98,7 @@ var lime = map[int]string{
 	950: "oklch(0.274 0.072 132.109)",
 }
 
-var blue = map[int]string{
+var Blue = map[int]string{
 	50:  "oklch(0.97 0.014 254.604)",
 	100: "oklch(0.932 0.032 255.585)",
 	200: "oklch(0.882 0.059 254.128)",
@@ -112,7 +112,7 @@ var blue = map[int]string{
 	950: "oklch(0.282 0.091 267.935)",
 }
 
-var violet = map[int]string{
+var Violet = map[int]string{
 	50:  "oklch(0.969 0.016 293.756)",
 	100: "oklch(0.943 0.029 294.588)",
 	200: "oklch(0.894 0.057 293.283)",
@@ -126,7 +126,7 @@ var violet = map[int]string{
 	950: "oklch(0.283 0.141 291.089)",
 }
 
-var fuchsia = map[int]string{
+var Fuchsia = map[int]string{
 	50:  "oklch(0.977 0.017 320.058)",
 	100: "oklch(0.952 0.037 318.852)",
 	200: "oklch(0.903 0.076 319.62)",
@@ -140,7 +140,7 @@ var fuchsia = map[int]string{
 	950: "oklch(0.293 0.136 325.661)",
 }
 
-var rose = map[int]string{
+var Rose = map[int]string{
 	50:  "oklch(0.969 0.015 12.422)",
 	100: "oklch(0.941 0.03 12.58)",
 	200: "oklch(0.892 0.058 10.001)",
@@ -154,7 +154,7 @@ var rose = map[int]string{
 	950: "oklch(0.271 0.105 12.094)",
 }
 
-var red = map[int]string{
+var Red = map[int]string{
 	50:  "oklch(0.971 0.013 17.38)",
 	100: "oklch(0.936 0.032 17.717)",
 	200: "oklch(0.885 0.062 18.334)",
@@ -168,7 +168,7 @@ var red = map[int]string{
 	950: "oklch(0.258 0.092 26.042)",
 }
 
-var amber = map[int]string{
+var Amber = map[int]string{
 	50:  "oklch(0.987 0.022 95.277)",
 	100: "oklch(0.962 0.059 95.617)",
 	200: "oklch(0.924 0.12 95.746)",
@@ -182,7 +182,7 @@ var amber = map[int]string{
 	950: "oklch(0.279 0.077 45.635)",
 }
 
-var neutral = map[int]string{
+var Neutral = map[int]string{
 	50:  "oklch(0.985 0 0)",
 	100: "oklch(0.97 0 0)",
 	200: "oklch(0.922 0 0)",
@@ -196,7 +196,7 @@ var neutral = map[int]string{
 	950: "oklch(0.145 0 0)",
 }
 
-var teal = map[int]string{
+var Teal = map[int]string{
 	50:  "oklch(0.984 0.014 180.72)",
 	100: "oklch(0.953 0.051 180.801)",
 	200: "oklch(0.91 0.096 180.426)",
@@ -210,7 +210,7 @@ var teal = map[int]string{
 	950: "oklch(0.277 0.046 192.524)",
 }
 
-var cyan = map[int]string{
+var Cyan = map[int]string{
 	50:  "oklch(0.984 0.019 200.873)",
 	100: "oklch(0.956 0.045 203.388)",
 	200: "oklch(0.917 0.08 205.041)",
@@ -224,7 +224,7 @@ var cyan = map[int]string{
 	950: "oklch(0.302 0.056 229.695)",
 }
 
-var sky = map[int]string{
+var Sky = map[int]string{
 	50:  "oklch(0.977 0.013 236.62)",
 	100: "oklch(0.951 0.026 236.824)",
 	200: "oklch(0.901 0.058 230.902)",
@@ -238,7 +238,7 @@ var sky = map[int]string{
 	950: "oklch(0.293 0.066 243.157)",
 }
 
-var purple = map[int]string{
+var Purple = map[int]string{
 	50:  "oklch(0.977 0.014 308.299)",
 	100: "oklch(0.946 0.033 307.174)",
 	200: "oklch(0.902 0.063 306.703)",
@@ -252,7 +252,7 @@ var purple = map[int]string{
 	950: "oklch(0.291 0.149 302.717)",
 }
 
-var gray = map[int]string{
+var Gray = map[int]string{
 	50:  "oklch(0.985 0.002 247.839)",
 	100: "oklch(0.967 0.003 264.542)",
 	200: "oklch(0.928 0.006 264.531)",
@@ -266,7 +266,7 @@ var gray = map[int]string{
 	950: "oklch(0.13 0.028 261.692)",
 }
 
-var green = map[int]string{
+var Green = map[int]string{
 	50:  "oklch(0.982 0.018 155.826)",
 	100: "oklch(0.962 0.044 156.743)",
 	200: "oklch(0.925 0.084 155.995)",
@@ -280,7 +280,7 @@ var green = map[int]string{
 	950: "oklch(0.266 0.065 152.934)",
 }
 
-var emerald = map[int]string{
+var Emerald = map[int]string{
 	50:  "oklch(0.979 0.021 166.113)",
 	100: "oklch(0.95 0.052 163.051)",
 	200: "oklch(0.905 0.093 164.15)",
@@ -294,7 +294,7 @@ var emerald = map[int]string{
 	950: "oklch(0.262 0.051 172.552)",
 }
 
-var indigo = map[int]string{
+var Indigo = map[int]string{
 	50:  "oklch(0.962 0.018 272.314)",
 	100: "oklch(0.93 0.034 272.788)",
 	200: "oklch(0.87 0.065 274.039)",
@@ -308,16 +308,16 @@ var indigo = map[int]string{
 	950: "oklch(0.257 0.09 281.288)",
 }
 
-var primary = emerald
+var Primary = Emerald
 
-css bg(color string) {
+css Bg(color string) {
 	background-color: { templ.SafeCSSProperty(color) };
 }
 
-css borderColor(color string) {
+css BorderColor(color string) {
 	border-color: { templ.SafeCSSProperty(color) };
 }
 
-css color(color string) {
+css Color(color string) {
 	color: { templ.SafeCSSProperty(color) };
 }
