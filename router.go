@@ -1,66 +1,135 @@
 package main
 
 import (
-	"fmt"
+	"context"
 	"log/slog"
+	"maps"
 	"net/http"
 	"strings"
 )
 
+const paramsKey contextKey = "params"
+
+func WithParams(r *http.Request, newParams map[string]string) *http.Request {
+	params := Params(r)
+	maps.Copy(params, newParams)
+
+	ctx := context.WithValue(r.Context(), paramsKey, params)
+	return r.WithContext(ctx)
+}
+
+func Params(r *http.Request) map[string]string {
+	val := r.Context().Value(paramsKey)
+	if p, ok := val.(map[string]string); ok {
+		return p
+	}
+
+	return map[string]string{}
+}
+
 type Middleware func(http.Handler) http.Handler
 
-type Router struct {
-	mux         *http.ServeMux
-	middlewares []Middleware
+type route struct {
+	method  *string
+	pattern string
+	handler http.Handler
+}
 
-	// root path will be empty, so handler paths will start with / no matter what
-	path string
+type Router struct {
+	routes      *[]route
+	middlewares []Middleware
+	pathShift   int
 }
 
 func NewRouter() Router {
 	return Router{
-		mux: http.NewServeMux(),
+		routes: &[]route{},
 	}
+}
+
+func match(pattern, path string, shift int) (bool, map[string]string) {
+	patternParts := strings.Split(pattern, "/")
+	pathParts := strings.Split(path, "/")
+
+	params := map[string]string{}
+	for i := 1; i < len(patternParts); i++ {
+		pp := patternParts[i]
+		if pp == "" && i == len(patternParts)-1 && len(pathParts) == i+shift {
+			break
+		}
+
+		cp := pathParts[i+shift]
+
+		if strings.HasPrefix(pp, ":") {
+			params[pp[1:]] = cp
+		} else if pp != cp {
+			return false, nil
+		}
+	}
+
+	return true, params
+}
+
+func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	for _, route := range *r.routes {
+		if route.method != nil && *route.method != req.Method {
+			continue
+		}
+
+		if ok, params := match(route.pattern, req.URL.Path, r.pathShift); ok {
+			req = WithParams(req, params)
+			route.handler.ServeHTTP(w, req)
+			return
+		}
+	}
+
+	r.middlewareFunc(http.NotFound).ServeHTTP(w, req)
 }
 
 func (r *Router) ListenAndServe(addr string) error {
 	slog.Info("listening for requests", "addr", addr)
 
-	return http.ListenAndServe(addr, r.mux)
+	return http.ListenAndServe(addr, r)
 }
 
 func (r *Router) Use(m ...Middleware) *Router {
 	return &Router{
-		mux:         r.mux,
+		routes:      r.routes,
 		middlewares: append(r.middlewares, m...),
-		path:        r.path,
+		pathShift:   r.pathShift,
 	}
+}
+
+func (r *Router) middlewareFunc(handler http.HandlerFunc) http.Handler {
+	return r.middleware(handler)
+}
+
+func (r *Router) middleware(handler http.Handler) http.Handler {
+	wrapped := handler
+	for i := len(r.middlewares) - 1; i >= 0; i-- {
+		wrapped = r.middlewares[i](wrapped)
+	}
+
+	return wrapped
 }
 
 func (r *Router) Register(method, path string, handler http.HandlerFunc) {
 	Assert(len(path) >= 1, "path must not be empty")
 	Assert(strings.HasPrefix(path, "/"), "path must start with /")
 
-	wrapped := handler
-	for i := len(r.middlewares) - 1; i >= 0; i-- {
-		wrapped = r.middlewares[i](wrapped).(http.HandlerFunc)
+	route := route{
+		method:  &method,
+		pattern: path,
+		handler: r.middleware(handler),
 	}
 
-	handlerPath := fmt.Sprintf("%s/%s", r.path, path[1:])
-	r.mux.HandleFunc(fmt.Sprintf("%s %s", method, handlerPath), wrapped)
+	*r.routes = append(*r.routes, route)
 }
 
 func (r *Router) Handle(method, path string, handle http.Handler) {
-	Assert(len(path) >= 1, "path must not be empty")
-	Assert(strings.HasPrefix(path, "/"), "path must start with /")
-
-	wrapped := handle
-	for i := len(r.middlewares) - 1; i >= 0; i-- {
-		wrapped = r.middlewares[i](wrapped).(http.HandlerFunc)
-	}
-
-	handlerPath := fmt.Sprintf("%s/%s", r.path, path[1:])
-	r.mux.Handle(fmt.Sprintf("%s %s", method, handlerPath), wrapped)
+	r.Register(method, path, func(w http.ResponseWriter, r *http.Request) {
+		handle.ServeHTTP(w, r)
+	})
 }
 
 func (r *Router) Get(path string, handler http.HandlerFunc) {
@@ -79,11 +148,19 @@ func (r *Router) Route(path string) *Router {
 	Assert(len(path) >= 2, "path must not be empty")
 	Assert(strings.HasPrefix(path, "/"), "path must start with /")
 
-	return &Router{
-		mux:         r.mux,
+	router := &Router{
+		routes:      &[]route{},
 		middlewares: r.middlewares,
-		path:        fmt.Sprintf("%s/%s", r.path, path[1:]),
+		pathShift:   r.pathShift + 1,
 	}
+
+	*r.routes = append(*r.routes, route{
+		method:  nil,
+		pattern: path,
+		handler: router,
+	})
+
+	return router
 }
 
 func (r *Router) RouteFunc(path string, f func(*Router)) {

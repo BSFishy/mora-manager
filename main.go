@@ -47,17 +47,12 @@ func main() {
 	})
 
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/" {
-			http.NotFound(w, r)
-			return
-		}
-
 		w.Header().Set("location", "/secret")
 		w.WriteHeader(http.StatusTemporaryRedirect)
 	})
 
 	r.HandleGet("/secret", templ.Handler(templates.Secret()))
-	r.HandleGet("/assets/", http.FileServerFS(assets))
+	r.HandleGet("/assets", http.FileServerFS(assets))
 
 	r.ListenAndServe(":8080")
 }
