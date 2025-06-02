@@ -5,6 +5,24 @@ import (
 	"net/http"
 )
 
+type statusCodeResponseWriter struct {
+	inner      http.ResponseWriter
+	statusCode int
+}
+
+func (s *statusCodeResponseWriter) Header() http.Header {
+	return s.inner.Header()
+}
+
+func (s *statusCodeResponseWriter) Write(data []byte) (int, error) {
+	return s.inner.Write(data)
+}
+
+func (s *statusCodeResponseWriter) WriteHeader(statusCode int) {
+	s.statusCode = statusCode
+	s.inner.WriteHeader(statusCode)
+}
+
 func log(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
@@ -14,6 +32,14 @@ func log(next http.Handler) http.Handler {
 		logger.Info("handling request")
 
 		r = r.WithContext(WithLogger(ctx, logger))
-		next.ServeHTTP(w, r)
+
+		writer := &statusCodeResponseWriter{
+			inner:      w,
+			statusCode: 200,
+		}
+
+		next.ServeHTTP(writer, r)
+
+		logger.Info("completed request", slog.Group("response", "statusCode", writer.statusCode))
 	})
 }

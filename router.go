@@ -76,7 +76,7 @@ func (r *Router) Post(path string, handler http.HandlerFunc) {
 }
 
 func (r *Router) Route(path string) *Router {
-	Assert(len(path) >= 1, "path must not be empty")
+	Assert(len(path) >= 2, "path must not be empty")
 	Assert(strings.HasPrefix(path, "/"), "path must start with /")
 
 	return &Router{

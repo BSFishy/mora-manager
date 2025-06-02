@@ -17,17 +17,21 @@ type App struct {
 	clientset *kubernetes.Clientset
 }
 
-func main() {
-	SetupLogger()
-
+func NewApp() App {
 	clientset, err := NewClientset()
 	if err != nil {
 		panic(err)
 	}
 
-	app := App{
+	return App{
 		clientset: clientset,
 	}
+}
+
+func main() {
+	SetupLogger()
+
+	app := NewApp()
 
 	r := NewRouter()
 	r = *r.Use(log)
