@@ -41,7 +41,17 @@ func main() {
 		})
 	})
 
-	r.HandleGet("/", templ.Handler(index()))
+	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/" {
+			http.NotFound(w, r)
+			return
+		}
+
+		w.Header().Set("location", "/secret")
+		w.WriteHeader(http.StatusTemporaryRedirect)
+	})
+
+	r.HandleGet("/secret", templ.Handler(secret()))
 	r.HandleGet("/assets/", http.FileServerFS(assets))
 
 	r.ListenAndServe(":8080")

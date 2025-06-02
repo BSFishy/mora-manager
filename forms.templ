@@ -7,7 +7,7 @@ templ passwordInput(attrs templ.Attributes) {
 templ input(inputType string, attrs templ.Attributes) {
 	<input
 		type={ inputType }
-		class={ bg(emerald[50]), borderWidth("3px"), borderColor(emerald[600]), rounded(radius["md"]), px(4), py(2) }
+		class={ bg(emerald[50]), borderWidth("3px"), borderColor(emerald[600]), rounded(radius["md"]), px(4), py(2), attrs["class"] }
 		{ attrs... }
 	/>
 }
@@ -15,7 +15,7 @@ templ input(inputType string, attrs templ.Attributes) {
 templ submit() {
 	<button
 		type="submit"
-		class={ cursorPointer(), bg(emerald[600]), px(4), py(2), rounded(radius["md"]), color(emerald[50]) }
+		class={ cursorPointer(), bg(emerald[600]), px(4), py(2), rounded(radius["md"]), color(emerald[50]), weight("bold") }
 	>
 		{ children... }
 	</button>
