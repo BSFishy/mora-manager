@@ -52,7 +52,7 @@ func main() {
 	})
 
 	r.HandleGet("/secret", templ.Handler(templates.Secret()))
-	r.HandleGet("/assets", http.FileServerFS(assets))
+	r.Prefix("/assets", http.FileServerFS(assets))
 
 	r.ListenAndServe(":8080")
 }

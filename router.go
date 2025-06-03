@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"maps"
 	"net/http"
@@ -29,16 +30,27 @@ func Params(r *http.Request) map[string]string {
 
 type Middleware func(http.Handler) http.Handler
 
+type patternType int
+
+const (
+	prefix  patternType = iota
+	pattern             = iota
+)
+
 type route struct {
-	method  *string
-	pattern string
-	handler http.Handler
+	patternType patternType
+	method      *string
+	pattern     string
+	handler     http.Handler
 }
 
 type Router struct {
 	routes      *[]route
 	middlewares []Middleware
-	pathShift   int
+
+	// something something the root router will be empty so paths will always be
+	// prefixed with /
+	path string
 }
 
 func NewRouter() Router {
@@ -47,18 +59,22 @@ func NewRouter() Router {
 	}
 }
 
-func match(pattern, path string, shift int) (bool, map[string]string) {
+func match(patternType patternType, pattern, path string) (bool, map[string]string) {
+	if patternType == prefix {
+		return strings.HasPrefix(path, pattern), map[string]string{}
+	}
+
 	patternParts := strings.Split(pattern, "/")
 	pathParts := strings.Split(path, "/")
+
+	if len(patternParts) != len(pathParts) {
+		return false, nil
+	}
 
 	params := map[string]string{}
 	for i := 1; i < len(patternParts); i++ {
 		pp := patternParts[i]
-		if pp == "" && i == len(patternParts)-1 && len(pathParts) == i+shift {
-			break
-		}
-
-		cp := pathParts[i+shift]
+		cp := pathParts[i]
 
 		if strings.HasPrefix(pp, ":") {
 			params[pp[1:]] = cp
@@ -76,7 +92,7 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			continue
 		}
 
-		if ok, params := match(route.pattern, req.URL.Path, r.pathShift); ok {
+		if ok, params := match(route.patternType, route.pattern, req.URL.Path); ok {
 			req = WithParams(req, params)
 			route.handler.ServeHTTP(w, req)
 			return
@@ -96,7 +112,7 @@ func (r *Router) Use(m ...Middleware) *Router {
 	return &Router{
 		routes:      r.routes,
 		middlewares: append(r.middlewares, m...),
-		pathShift:   r.pathShift,
+		path:        r.path,
 	}
 }
 
@@ -117,10 +133,28 @@ func (r *Router) Register(method, path string, handler http.HandlerFunc) {
 	Assert(len(path) >= 1, "path must not be empty")
 	Assert(strings.HasPrefix(path, "/"), "path must start with /")
 
+	routePath := fmt.Sprintf("%s/%s", r.path, path[1:])
 	route := route{
-		method:  &method,
-		pattern: path,
-		handler: r.middleware(handler),
+		patternType: pattern,
+		method:      &method,
+		pattern:     routePath,
+		handler:     r.middleware(handler),
+	}
+
+	*r.routes = append(*r.routes, route)
+}
+
+// does not support path parameters
+func (r *Router) Prefix(path string, handler http.Handler) {
+	Assert(len(path) >= 1, "path must not be empty")
+	Assert(strings.HasPrefix(path, "/"), "path must start with /")
+
+	routePath := fmt.Sprintf("%s/%s", r.path, path[1:])
+	route := route{
+		patternType: prefix,
+		method:      nil,
+		pattern:     routePath,
+		handler:     r.middleware(handler),
 	}
 
 	*r.routes = append(*r.routes, route)
@@ -133,34 +167,26 @@ func (r *Router) Handle(method, path string, handle http.Handler) {
 }
 
 func (r *Router) Get(path string, handler http.HandlerFunc) {
-	r.Register("GET", path, handler)
+	r.Register(http.MethodGet, path, handler)
 }
 
 func (r *Router) HandleGet(path string, handle http.Handler) {
-	r.Handle("GET", path, handle)
+	r.Handle(http.MethodGet, path, handle)
 }
 
 func (r *Router) Post(path string, handler http.HandlerFunc) {
-	r.Register("POST", path, handler)
+	r.Register(http.MethodPost, path, handler)
 }
 
 func (r *Router) Route(path string) *Router {
 	Assert(len(path) >= 2, "path must not be empty")
 	Assert(strings.HasPrefix(path, "/"), "path must start with /")
 
-	router := &Router{
-		routes:      &[]route{},
+	return &Router{
+		routes:      r.routes,
 		middlewares: r.middlewares,
-		pathShift:   r.pathShift + 1,
+		path:        fmt.Sprintf("%s/%s", r.path, path[1:]),
 	}
-
-	*r.routes = append(*r.routes, route{
-		method:  nil,
-		pattern: path,
-		handler: router,
-	})
-
-	return router
 }
 
 func (r *Router) RouteFunc(path string, f func(*Router)) {
