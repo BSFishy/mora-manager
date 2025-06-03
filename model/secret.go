@@ -18,6 +18,16 @@ func generateSecret(length int) string {
 	return base64.RawURLEncoding.EncodeToString(b)
 }
 
+func (d *DB) UsersExist() (bool, error) {
+	var exists bool
+	err := d.db.QueryRow("SELECT EXISTS (SELECT 1 FROM users LIMIT 1)").Scan(&exists)
+	if err != nil {
+		return false, err
+	}
+
+	return exists, nil
+}
+
 func (d *DB) GetOrCreateSecret() (string, error) {
 	var secret string
 	err := d.db.QueryRow("SELECT value FROM kv WHERE key = 'secret'").Scan(&secret)

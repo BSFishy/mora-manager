@@ -19,6 +19,7 @@ var assets embed.FS
 type App struct {
 	clientset *kubernetes.Clientset
 	db        *model.DB
+	secret    string
 }
 
 func NewApp() App {
@@ -37,17 +38,25 @@ func NewApp() App {
 		panic(err)
 	}
 
-	secret, err := db.GetOrCreateSecret()
+	usersExist, err := db.UsersExist()
 	if err != nil {
 		panic(err)
 	}
 
-	// TODO: only display this on initial setup
-	slog.Info("setup secret", "secret", secret)
+	var secret string
+	if !usersExist {
+		secret, err = db.GetOrCreateSecret()
+		if err != nil {
+			panic(err)
+		}
+
+		slog.Info("setup secret", "secret", secret)
+	}
 
 	return App{
 		clientset: clientset,
 		db:        db,
+		secret:    secret,
 	}
 }
 
@@ -69,11 +78,41 @@ func main() {
 		})
 	})
 
+	// TODO: gate this function with if users exist
+	r.RouteFunc("/htmx", func(r *router.Router) {
+		r.Post("/secret", func(w http.ResponseWriter, r *http.Request) {
+			ctx := r.Context()
+			logger := LogFromCtx(ctx)
+
+			err := r.ParseForm()
+			if err != nil {
+				logger.Error("failed to parse secret form", "err", err)
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+
+			if !r.Form.Has("secret") {
+				templates.SecretForm(true).Render(ctx, w)
+				return
+			}
+
+			secret := r.Form.Get("secret")
+			if secret != app.secret {
+				templates.SecretForm(true).Render(ctx, w)
+				return
+			}
+
+			// TODO: create a session, send it as a cookie, redirect to admin setup
+			fmt.Fprint(w, "pong")
+		})
+	})
+
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("location", "/secret")
 		w.WriteHeader(http.StatusTemporaryRedirect)
 	})
 
+	// TODO: gate this route with if users exist
 	r.HandleGet("/secret", templ.Handler(templates.Secret()))
 	r.Prefix("/assets", http.FileServerFS(assets))
 

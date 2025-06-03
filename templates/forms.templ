@@ -14,10 +14,11 @@ templ input(inputType string, attrs templ.Attributes) {
 	/>
 }
 
-templ submit() {
+templ submit(attrs templ.Attributes) {
 	<button
 		type="submit"
-		class={ styles.CursorPointer(), styles.Bg(styles.Emerald[600]), styles.Px(4), styles.Py(2), styles.Rounded(styles.Radius["md"]), styles.Color(styles.Emerald[50]), styles.Weight("bold") }
+		class={ styles.CursorPointer(), styles.Bg(styles.Emerald[600]), styles.Px(4), styles.Py(2), styles.Rounded(styles.Radius["md"]), styles.Color(styles.Emerald[50]), styles.Weight("bold"), attrs["class"] }
+		{ attrs... }
 	>
 		{ children... }
 	</button>
