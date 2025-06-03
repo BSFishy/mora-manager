@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/BSFishy/mora-manager/util"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -29,7 +30,7 @@ func (s *Service) EvaluateImage() string {
 }
 
 func (s *Service) Deploy(ctx context.Context, clientset *kubernetes.Clientset, moduleName string) error {
-	name := sanitizeDNS1123Subdomain(fmt.Sprintf("%s-%s", moduleName, s.Name))
+	name := util.SanitizeDNS1123Subdomain(fmt.Sprintf("%s-%s", moduleName, s.Name))
 	podspec := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -38,7 +39,7 @@ func (s *Service) Deploy(ctx context.Context, clientset *kubernetes.Clientset, m
 		Spec: corev1.PodSpec{
 			Containers: []corev1.Container{
 				{
-					Name:  sanitizeDNS1123Label(s.Name),
+					Name:  util.SanitizeDNS1123Label(s.Name),
 					Image: s.EvaluateImage(),
 				},
 			},

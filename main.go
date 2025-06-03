@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/BSFishy/mora-manager/router"
 	"github.com/BSFishy/mora-manager/templates"
 	"github.com/a-h/templ"
 	"k8s.io/client-go/kubernetes"
@@ -33,16 +34,16 @@ func main() {
 
 	app := NewApp()
 
-	r := NewRouter()
+	r := router.NewRouter()
 	r = *r.Use(log)
 
-	r.RouteFunc("/api", func(r *Router) {
-		r.RouteFunc("/v1", func(r *Router) {
+	r.RouteFunc("/api", func(r *router.Router) {
+		r.RouteFunc("/v1", func(r *router.Router) {
 			r.Get("/ping", func(w http.ResponseWriter, r *http.Request) {
 				fmt.Fprint(w, "pong")
 			})
 
-			r.Post("/deployment", app.Sync)
+			r.Post("/deployment", app.createDeployment)
 		})
 	})
 

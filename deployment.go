@@ -7,12 +7,12 @@ import (
 	"net/http"
 )
 
-type SyncRequest struct {
+type DeploymentRequest struct {
 	Modules []Module `json:"modules"`
 }
 
-func (a *App) Sync(w http.ResponseWriter, req *http.Request) {
-	var body SyncRequest
+func (a *App) createDeployment(w http.ResponseWriter, req *http.Request) {
+	var body DeploymentRequest
 	if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
