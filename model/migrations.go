@@ -79,7 +79,7 @@ func (d *DB) SetupMigrations() error {
 				return fmt.Errorf("running migration %s: %w", version, err)
 			}
 
-			_, err := d.db.Exec("INSERT INTO schema_migrations (version) VALUES ($1);", version)
+			_, err := d.db.Exec("INSERT INTO schema_migrations (version) VALUES ($1)", version)
 			if err != nil {
 				return fmt.Errorf("inserting version %s into migrations table: %w", version, err)
 			}
@@ -105,7 +105,7 @@ func includesMigration(version string, migrations []migration) bool {
 }
 
 func (d *DB) getMigrations() ([]migration, error) {
-	rows, err := d.db.Query("SELECT version FROM schema_migrations;")
+	rows, err := d.db.Query("SELECT version FROM schema_migrations")
 	if err != nil {
 		return nil, fmt.Errorf("selecting versions: %w", err)
 	}

@@ -3,6 +3,7 @@ package main
 import (
 	"embed"
 	"fmt"
+	"log/slog"
 	"net/http"
 
 	"github.com/BSFishy/mora-manager/model"
@@ -35,6 +36,14 @@ func NewApp() App {
 	if err != nil {
 		panic(err)
 	}
+
+	secret, err := db.GetOrCreateSecret()
+	if err != nil {
+		panic(err)
+	}
+
+	// TODO: only display this on initial setup
+	slog.Info("setup secret", "secret", secret)
 
 	return App{
 		clientset: clientset,
