@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/BSFishy/mora-manager/model"
 	"github.com/BSFishy/mora-manager/router"
 	"github.com/BSFishy/mora-manager/templates"
 	"github.com/a-h/templ"
@@ -16,6 +17,7 @@ var assets embed.FS
 
 type App struct {
 	clientset *kubernetes.Clientset
+	db        *model.DB
 }
 
 func NewApp() App {
@@ -24,8 +26,19 @@ func NewApp() App {
 		panic(err)
 	}
 
+	db, err := model.NewDB()
+	if err != nil {
+		panic(err)
+	}
+
+	err = db.SetupMigrations()
+	if err != nil {
+		panic(err)
+	}
+
 	return App{
 		clientset: clientset,
+		db:        db,
 	}
 }
 
