@@ -78,42 +78,20 @@ func main() {
 		})
 	})
 
-	// TODO: gate this function with if users exist
 	r.RouteFunc("/htmx", func(r *router.Router) {
-		r.Post("/secret", func(w http.ResponseWriter, r *http.Request) {
-			ctx := r.Context()
-			logger := LogFromCtx(ctx)
-
-			err := r.ParseForm()
-			if err != nil {
-				logger.Error("failed to parse secret form", "err", err)
-				w.WriteHeader(http.StatusInternalServerError)
-				return
-			}
-
-			if !r.Form.Has("secret") {
-				templates.SecretForm(true).Render(ctx, w)
-				return
-			}
-
-			secret := r.Form.Get("secret")
-			if secret != app.secret {
-				templates.SecretForm(true).Render(ctx, w)
-				return
-			}
-
-			// TODO: create a session, send it as a cookie, redirect to admin setup
-			fmt.Fprint(w, "pong")
-		})
+		r.Use(app.secretMiddleware).Post("/secret", app.secretHtmxRoute)
 	})
 
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("location", "/secret")
+		w.Header().Set("location", "/setup/secret")
 		w.WriteHeader(http.StatusTemporaryRedirect)
 	})
 
-	// TODO: gate this route with if users exist
-	r.HandleGet("/secret", templ.Handler(templates.Secret()))
+	r.RouteFunc("/setup", func(r *router.Router) {
+		r.Use(app.secretMiddleware).HandleGet("/secret", templ.Handler(templates.Secret()))
+		r.Use(app.userMiddleware).HandleGet("/user", templ.Handler(templates.User()))
+	})
+
 	r.Prefix("/assets", http.FileServerFS(assets))
 
 	r.ListenAndServe(":8080")
