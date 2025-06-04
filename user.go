@@ -10,6 +10,19 @@ func (a *App) userMiddleware(handler http.Handler) http.Handler {
 		ctx := r.Context()
 		logger := LogFromCtx(ctx)
 
+		usersExist, err := a.db.UsersExist()
+		if err != nil {
+			logger.Error("failed to check if users exist", "err", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		if usersExist {
+			w.Header().Set("location", "/login")
+			w.WriteHeader(http.StatusTemporaryRedirect)
+			return
+		}
+
 		sessionId, err := a.getSessionCookie(r)
 		if err != nil {
 			logger.Error("failed to get session cookie", "err", err)
