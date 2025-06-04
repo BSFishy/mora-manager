@@ -1,49 +1,44 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
 
+	"github.com/BSFishy/mora-manager/logging"
+	"github.com/BSFishy/mora-manager/router"
 	"github.com/BSFishy/mora-manager/templates"
 )
 
 func (a *App) secretMiddleware(handler http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
-		logger := LogFromCtx(ctx)
-
+	return router.ErrorHandle(func(w http.ResponseWriter, r *http.Request) error {
 		usersExist, err := a.db.UsersExist()
 		if err != nil {
-			logger.Error("failed to check if users exist", "err", err)
-			w.WriteHeader(http.StatusInternalServerError)
-			return
+			return fmt.Errorf("checking if users exist: %w", err)
 		}
 
 		if usersExist {
-			w.Header().Set("location", "/login")
-			w.WriteHeader(http.StatusTemporaryRedirect)
-			return
+			router.Redirect(w, "/login")
+			return nil
 		}
 
 		sessionId, err := a.getSessionCookie(r)
 		if err != nil {
-			logger.Error("failed to get session cookie", "err", err)
-			w.WriteHeader(http.StatusInternalServerError)
-			return
+			return fmt.Errorf("getting session cookie: %w", err)
 		}
 
 		if sessionId != nil {
-			w.Header().Set("location", "/setup/user")
-			w.WriteHeader(http.StatusTemporaryRedirect)
-			return
+			router.Redirect(w, "/setup/user")
+			return nil
 		}
 
 		handler.ServeHTTP(w, r)
+		return nil
 	})
 }
 
 func (a *App) secretHtmxRoute(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	logger := LogFromCtx(ctx)
+	logger := logging.LogFromCtx(ctx)
 
 	err := r.ParseForm()
 	if err != nil {

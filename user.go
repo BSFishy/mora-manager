@@ -1,46 +1,38 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
 	"time"
+
+	"github.com/BSFishy/mora-manager/router"
 )
 
 func (a *App) userMiddleware(handler http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
-		logger := LogFromCtx(ctx)
-
+	return router.ErrorHandle(func(w http.ResponseWriter, r *http.Request) error {
 		usersExist, err := a.db.UsersExist()
 		if err != nil {
-			logger.Error("failed to check if users exist", "err", err)
-			w.WriteHeader(http.StatusInternalServerError)
-			return
+			return fmt.Errorf("checking if users exist: %w", err)
 		}
 
 		if usersExist {
-			w.Header().Set("location", "/login")
-			w.WriteHeader(http.StatusTemporaryRedirect)
-			return
+			router.Redirect(w, "/login")
+			return nil
 		}
 
 		sessionId, err := a.getSessionCookie(r)
 		if err != nil {
-			logger.Error("failed to get session cookie", "err", err)
-			w.WriteHeader(http.StatusInternalServerError)
-			return
+			return fmt.Errorf("getting session cookie: %w", err)
 		}
 
 		if sessionId == nil {
-			w.Header().Set("location", "/setup/secret")
-			w.WriteHeader(http.StatusTemporaryRedirect)
-			return
+			router.Redirect(w, "/setup/secret")
+			return nil
 		}
 
 		session, err := a.db.GetSession(*sessionId)
 		if err != nil {
-			logger.Error("failed to get session", "err", err)
-			w.WriteHeader(http.StatusInternalServerError)
-			return
+			return fmt.Errorf("getting session: %w", err)
 		}
 
 		if session == nil {
@@ -54,17 +46,15 @@ func (a *App) userMiddleware(handler http.Handler) http.Handler {
 				HttpOnly: true,
 			})
 
-			w.Header().Set("location", "/setup/secret")
-			w.WriteHeader(http.StatusTemporaryRedirect)
-			return
+			router.Redirect(w, "/setup/secret")
+			return nil
 		}
 
 		if session.UserID != nil {
 			// session is associated with an actual user. send them directly to the
 			// dashboard
-			w.Header().Set("location", "/dashboard")
-			w.WriteHeader(http.StatusTemporaryRedirect)
-			return
+			router.Redirect(w, "/dashboard")
+			return nil
 		}
 
 		if !session.Admin {
@@ -78,11 +68,11 @@ func (a *App) userMiddleware(handler http.Handler) http.Handler {
 				HttpOnly: true,
 			})
 
-			w.Header().Set("location", "/setup/secret")
-			w.WriteHeader(http.StatusTemporaryRedirect)
-			return
+			router.Redirect(w, "/setup/secret")
+			return nil
 		}
 
 		handler.ServeHTTP(w, r)
+		return nil
 	})
 }

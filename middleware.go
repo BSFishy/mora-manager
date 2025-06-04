@@ -3,6 +3,8 @@ package main
 import (
 	"log/slog"
 	"net/http"
+
+	"github.com/BSFishy/mora-manager/logging"
 )
 
 type statusCodeResponseWriter struct {
@@ -26,12 +28,12 @@ func (s *statusCodeResponseWriter) WriteHeader(statusCode int) {
 func log(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
-		logger := LogFromCtx(ctx)
+		logger := logging.LogFromCtx(ctx)
 		logger = logger.With(slog.Group("request", "method", r.Method, "url", r.URL.String()))
 
 		logger.Info("handling request")
 
-		r = r.WithContext(WithLogger(ctx, logger))
+		r = r.WithContext(logging.WithLogger(ctx, logger))
 
 		writer := &statusCodeResponseWriter{
 			inner:      w,

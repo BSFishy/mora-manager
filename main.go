@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/BSFishy/mora-manager/logging"
 	"github.com/BSFishy/mora-manager/model"
 	"github.com/BSFishy/mora-manager/router"
 	"github.com/BSFishy/mora-manager/templates"
@@ -61,7 +62,7 @@ func NewApp() App {
 }
 
 func main() {
-	SetupLogger()
+	logging.SetupLogger()
 
 	app := NewApp()
 
@@ -83,8 +84,7 @@ func main() {
 	})
 
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("location", "/setup/secret")
-		w.WriteHeader(http.StatusTemporaryRedirect)
+		router.Redirect(w, "/setup/secret")
 	})
 
 	r.RouteFunc("/setup", func(r *router.Router) {
