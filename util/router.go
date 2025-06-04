@@ -1,9 +1,7 @@
-package router
+package util
 
 import (
 	"net/http"
-
-	"github.com/BSFishy/mora-manager/util"
 )
 
 func Redirect(w http.ResponseWriter, location string) {
@@ -14,7 +12,7 @@ func Redirect(w http.ResponseWriter, location string) {
 func ErrorHandle(handler func(http.ResponseWriter, *http.Request) error) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
-		logger := util.LogFromCtx(ctx)
+		logger := LogFromCtx(ctx)
 
 		err := handler(w, r)
 		if err != nil {

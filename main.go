@@ -9,6 +9,7 @@ import (
 	"github.com/BSFishy/mora-manager/model"
 	"github.com/BSFishy/mora-manager/router"
 	"github.com/BSFishy/mora-manager/templates"
+	"github.com/BSFishy/mora-manager/util"
 	"github.com/a-h/templ"
 	"k8s.io/client-go/kubernetes"
 )
@@ -83,7 +84,7 @@ func main() {
 	})
 
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-		router.Redirect(w, "/setup/secret")
+		util.Redirect(w, "/setup/secret")
 	})
 
 	r.RouteFunc("/setup", func(r *router.Router) {

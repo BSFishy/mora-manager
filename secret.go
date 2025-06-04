@@ -4,20 +4,19 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/BSFishy/mora-manager/router"
 	"github.com/BSFishy/mora-manager/templates"
 	"github.com/BSFishy/mora-manager/util"
 )
 
 func (a *App) secretMiddleware(handler http.Handler) http.Handler {
-	return router.ErrorHandle(func(w http.ResponseWriter, r *http.Request) error {
+	return util.ErrorHandle(func(w http.ResponseWriter, r *http.Request) error {
 		usersExist, err := a.db.UsersExist()
 		if err != nil {
 			return fmt.Errorf("checking if users exist: %w", err)
 		}
 
 		if usersExist {
-			router.Redirect(w, "/login")
+			util.Redirect(w, "/login")
 			return nil
 		}
 
@@ -27,7 +26,7 @@ func (a *App) secretMiddleware(handler http.Handler) http.Handler {
 		}
 
 		if sessionId != nil {
-			router.Redirect(w, "/setup/user")
+			util.Redirect(w, "/setup/user")
 			return nil
 		}
 

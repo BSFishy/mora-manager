@@ -5,18 +5,18 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/BSFishy/mora-manager/router"
+	"github.com/BSFishy/mora-manager/util"
 )
 
 func (a *App) userMiddleware(handler http.Handler) http.Handler {
-	return router.ErrorHandle(func(w http.ResponseWriter, r *http.Request) error {
+	return util.ErrorHandle(func(w http.ResponseWriter, r *http.Request) error {
 		usersExist, err := a.db.UsersExist()
 		if err != nil {
 			return fmt.Errorf("checking if users exist: %w", err)
 		}
 
 		if usersExist {
-			router.Redirect(w, "/login")
+			util.Redirect(w, "/login")
 			return nil
 		}
 
@@ -26,7 +26,7 @@ func (a *App) userMiddleware(handler http.Handler) http.Handler {
 		}
 
 		if sessionId == nil {
-			router.Redirect(w, "/setup/secret")
+			util.Redirect(w, "/setup/secret")
 			return nil
 		}
 
@@ -46,14 +46,14 @@ func (a *App) userMiddleware(handler http.Handler) http.Handler {
 				HttpOnly: true,
 			})
 
-			router.Redirect(w, "/setup/secret")
+			util.Redirect(w, "/setup/secret")
 			return nil
 		}
 
 		if session.UserID != nil {
 			// session is associated with an actual user. send them directly to the
 			// dashboard
-			router.Redirect(w, "/dashboard")
+			util.Redirect(w, "/dashboard")
 			return nil
 		}
 
@@ -68,7 +68,7 @@ func (a *App) userMiddleware(handler http.Handler) http.Handler {
 				HttpOnly: true,
 			})
 
-			router.Redirect(w, "/setup/secret")
+			util.Redirect(w, "/setup/secret")
 			return nil
 		}
 
