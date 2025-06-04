@@ -1,15 +1,10 @@
-package logging
+package main
 
 import (
-	"context"
 	"fmt"
 	"log/slog"
 	"os"
 )
-
-type contextKey string
-
-const loggerKey = contextKey("logger")
 
 func SetupLogger() {
 	_, debug := os.LookupEnv("DEBUG")
@@ -35,17 +30,4 @@ func SetupLogger() {
 	}
 
 	slog.SetDefault(slog.New(handler))
-}
-
-func LogFromCtx(ctx context.Context) *slog.Logger {
-	l, ok := ctx.Value(loggerKey).(*slog.Logger)
-	if !ok {
-		return slog.Default()
-	}
-
-	return l
-}
-
-func WithLogger(ctx context.Context, logger *slog.Logger) context.Context {
-	return context.WithValue(ctx, loggerKey, logger)
 }

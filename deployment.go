@@ -6,7 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/BSFishy/mora-manager/logging"
+	"github.com/BSFishy/mora-manager/util"
 )
 
 type DeploymentRequest struct {
@@ -21,7 +21,7 @@ func (a *App) createDeployment(w http.ResponseWriter, req *http.Request) {
 	}
 
 	ctx := req.Context()
-	logger := logging.LogFromCtx(ctx)
+	logger := util.LogFromCtx(ctx)
 
 	for _, module := range body.Modules {
 		moduleLogger := logger.With(slog.Group("module", "name", module.Name))

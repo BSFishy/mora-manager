@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/BSFishy/mora-manager/logging"
 	"github.com/BSFishy/mora-manager/router"
 	"github.com/BSFishy/mora-manager/templates"
+	"github.com/BSFishy/mora-manager/util"
 )
 
 func (a *App) secretMiddleware(handler http.Handler) http.Handler {
@@ -38,7 +38,7 @@ func (a *App) secretMiddleware(handler http.Handler) http.Handler {
 
 func (a *App) secretHtmxRoute(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	logger := logging.LogFromCtx(ctx)
+	logger := util.LogFromCtx(ctx)
 
 	err := r.ParseForm()
 	if err != nil {

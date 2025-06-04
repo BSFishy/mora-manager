@@ -6,7 +6,6 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/BSFishy/mora-manager/logging"
 	"github.com/BSFishy/mora-manager/model"
 	"github.com/BSFishy/mora-manager/router"
 	"github.com/BSFishy/mora-manager/templates"
@@ -62,7 +61,7 @@ func NewApp() App {
 }
 
 func main() {
-	logging.SetupLogger()
+	SetupLogger()
 
 	app := NewApp()
 
