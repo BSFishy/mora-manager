@@ -26,7 +26,6 @@ var migrations = map[string]string{
 	CREATE TABLE sessions (
 		id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 		user_id UUID,
-		admin BOOLEAN NOT NULL DEFAULT false,
 
 		created_at TIMESTAMP NOT NULL DEFAULT now(),
 		updated_at TIMESTAMP NOT NULL DEFAULT now(),

@@ -9,8 +9,6 @@ import (
 type Session struct {
 	Id     string
 	UserID *string
-	// TODO: delete this column
-	Admin bool
 
 	CreatedAt time.Time
 	UpdatedAt time.Time
@@ -18,11 +16,9 @@ type Session struct {
 }
 
 func (d *DB) NewSetupSession() (*Session, error) {
-	session := Session{
-		Admin: true,
-	}
+	session := Session{}
 
-	err := d.db.QueryRow("INSERT INTO sessions (admin) VALUES (true) RETURNING id, created_at, updated_at").Scan(&session.Id, &session.CreatedAt, &session.UpdatedAt)
+	err := d.db.QueryRow("INSERT INTO sessions DEFAULT VALUES RETURNING id, created_at, updated_at").Scan(&session.Id, &session.CreatedAt, &session.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -58,7 +54,7 @@ func (d *DB) GetSession(id string) (*Session, error) {
 		Id: id,
 	}
 
-	err := d.db.QueryRow("SELECT user_id, admin, created_at, updated_at, deleted_at FROM sessions WHERE id = $1 AND deleted_at IS null", id).Scan(&session.UserID, &session.Admin, &session.CreatedAt, &session.UpdatedAt, &session.DeletedAt)
+	err := d.db.QueryRow("SELECT user_id, created_at, updated_at, deleted_at FROM sessions WHERE id = $1 AND deleted_at IS null", id).Scan(&session.UserID, &session.CreatedAt, &session.UpdatedAt, &session.DeletedAt)
 	if err == nil {
 		return &session, nil
 	}
@@ -71,7 +67,7 @@ func (d *DB) GetSession(id string) (*Session, error) {
 }
 
 func (s *Session) UpdateUserId(d *DB, userId string) error {
-	_, err := d.db.Exec("UPDATE sessions SET user_id = $1 WHERE id = $2", userId, s.Id)
+	_, err := d.db.Exec("UPDATE sessions SET user_id = $1, updated_at = now() WHERE id = $2", userId, s.Id)
 	if err != nil {
 		return err
 	}

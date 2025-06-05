@@ -62,6 +62,9 @@ func (a *App) userProtected(handler http.Handler) http.Handler {
 
 		session, err := a.db.GetSession(*sessionId)
 		if err != nil {
+			// invalid session cookie probably. let's be safe
+			DeleteSessionCookie(w)
+			util.Redirect(w, "/login")
 			return fmt.Errorf("getting session: %w", err)
 		}
 
@@ -123,13 +126,6 @@ func (a *App) userMiddleware(handler http.Handler) http.Handler {
 			// session is associated with an actual user. send them directly to the
 			// dashboard
 			util.Redirect(w, "/dashboard")
-			return nil
-		}
-
-		if !session.Admin {
-			// not an admin, restart session
-			DeleteSessionCookie(w)
-			util.Redirect(w, "/setup/secret")
 			return nil
 		}
 

@@ -33,6 +33,7 @@ func CreateSessionCookie(w http.ResponseWriter, sessionId string) {
 		Value:    sessionId,
 		Path:     "/",
 		HttpOnly: false,
+		Expires:  time.Now().Add(7 * 24 * time.Hour),
 		SameSite: http.SameSiteStrictMode,
 	})
 }
