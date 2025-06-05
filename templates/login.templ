@@ -1,0 +1,29 @@
+package templates
+
+import "github.com/BSFishy/mora-manager/templates/styles"
+
+templ Login() {
+	@layout("Login") {
+		<div class={ styles.Flex(), styles.W("100vw"), styles.Minh("100vh"), styles.FlexCol(), styles.Justify("center"), styles.Align("center"), styles.Bg(styles.Emerald[300]), styles.Gap(2) }>
+			<h1 class={ styles.TextSize("4xl"), styles.Color(styles.Emerald[800]), styles.My(2) }>Mora</h1>
+			<form
+				autocomplete="off"
+				hx-post="/htmx/login"
+				class={ styles.Flex(), styles.FlexCol(), styles.Align("center"), styles.Gap(3) }
+			>
+				@LoginForm(false)
+			</form>
+		</div>
+	}
+}
+
+templ LoginForm(invalidInput bool) {
+	@textInput(templ.Attributes{"placeholder": "Username", "name": "username", "required": "required"})
+	@passwordInput(templ.Attributes{"placeholder": "Password", "name": "password", "required": "required"})
+	@submit(templ.Attributes{}) {
+		Submit
+	}
+	if invalidInput {
+		<span class={ styles.Color(styles.Red[700]) }>Please enter valid credentials</span>
+	}
+}

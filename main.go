@@ -79,9 +79,15 @@ func main() {
 		})
 	})
 
+	// TODO: these middleware should probably set the htmx location headers for
+	// redirects i think? unless the location header actually just redirects them.
+	// in that case, it's fine.
 	r.RouteFunc("/htmx", func(r *router.Router) {
 		r.Use(app.secretMiddleware).Post("/secret", app.secretHtmxRoute)
 		r.Use(app.userMiddleware).HandlePost("/user", router.ErrorHandlerFunc(app.userHtmxRoute))
+
+		r.Use(app.loginMiddleware).HandlePost("/login", router.ErrorHandlerFunc(app.loginHtmxRoute))
+		r.Use(app.userProtected).HandlePost("/signout", router.ErrorHandlerFunc(app.signOut))
 	})
 
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
@@ -89,6 +95,7 @@ func main() {
 	})
 
 	r.Use(app.userProtected).HandleGet("/dashboard", templ.Handler(templates.Dashboard()))
+	r.Use(app.loginMiddleware).HandleGet("/login", templ.Handler(templates.Login()))
 
 	r.RouteFunc("/setup", func(r *router.Router) {
 		r.Use(app.secretMiddleware).HandleGet("/secret", templ.Handler(templates.Secret()))

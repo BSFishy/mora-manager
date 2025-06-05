@@ -3,5 +3,8 @@ package templates
 templ Dashboard() {
 	@layout("Dashboard") {
 		<span>Hello world!</span>
+		@submit(templ.Attributes{"hx-post": "/htmx/signout"}) {
+			Sign out
+		}
 	}
 }

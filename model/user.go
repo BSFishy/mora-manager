@@ -51,6 +51,30 @@ func (d *DB) GetUserById(id string) (*User, error) {
 	return &user, nil
 }
 
+func (d *DB) GetUserByCredentials(username string, password string) (*User, error) {
+	user := User{
+		Username: username,
+	}
+
+	err := d.db.QueryRow("SELECT id, password, admin, created_at, updated_at, deleted_at FROM users WHERE username = $1 AND deleted_at IS NULL", username).Scan(&user.Id, &user.Password, &user.Admin, &user.CreatedAt, &user.UpdatedAt, &user.DeletedAt)
+
+	var deferedErr error
+	if err != nil {
+		deferedErr = err
+	}
+
+	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password))
+	if deferedErr != nil {
+		return nil, fmt.Errorf("getting user: %w", deferedErr)
+	}
+
+	if err != nil {
+		return nil, nil
+	}
+
+	return &user, nil
+}
+
 // return nil on success, error on failure
 func (u *User) ValidatePassword(password string) error {
 	return bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(password))

@@ -64,14 +64,7 @@ func (a *App) secretHtmxRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: make this secure for non dev?
-	http.SetCookie(w, &http.Cookie{
-		Name:     "session_id",
-		Value:    session.Id,
-		Path:     "/",
-		HttpOnly: false,
-		SameSite: http.SameSiteStrictMode,
-	})
+	CreateSessionCookie(w, session.Id)
 
 	w.Header().Set("HX-Location", "/setup/user")
 }

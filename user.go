@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"time"
 
 	"github.com/BSFishy/mora-manager/model"
 	"github.com/BSFishy/mora-manager/templates"
@@ -20,6 +19,33 @@ func WithUser(ctx context.Context, user *model.User) context.Context {
 func GetUser(ctx context.Context) (*model.User, bool) {
 	user, ok := ctx.Value(userKey).(*model.User)
 	return user, ok
+}
+
+func (a *App) loginMiddleware(handler http.Handler) http.Handler {
+	return util.ErrorHandle(func(w http.ResponseWriter, r *http.Request) error {
+		sessionId, err := a.getSessionCookie(r)
+		if err != nil {
+			return fmt.Errorf("getting session id: %w", err)
+		}
+
+		if sessionId != nil {
+			usersExist, err := a.db.UsersExist()
+			if err != nil {
+				return fmt.Errorf("getting if users exist: %w", err)
+			}
+
+			if !usersExist {
+				util.Redirect(w, "/setup/user")
+				return nil
+			}
+
+			util.Redirect(w, "/dashboard")
+			return nil
+		}
+
+		handler.ServeHTTP(w, r)
+		return nil
+	})
 }
 
 func (a *App) userProtected(handler http.Handler) http.Handler {
@@ -41,15 +67,7 @@ func (a *App) userProtected(handler http.Handler) http.Handler {
 
 		if session == nil || session.UserID == nil {
 			// invalid session cookie, delete
-			http.SetCookie(w, &http.Cookie{
-				Name:     "session_id",
-				Value:    "",
-				Path:     "/",
-				Expires:  time.Unix(0, 0),
-				MaxAge:   -1,
-				HttpOnly: false,
-			})
-
+			DeleteSessionCookie(w)
 			util.Redirect(w, "/login")
 			return nil
 		}
@@ -59,6 +77,7 @@ func (a *App) userProtected(handler http.Handler) http.Handler {
 			return fmt.Errorf("getting user: %w", err)
 		}
 
+		r = r.WithContext(WithSession(r.Context(), session))
 		r = r.WithContext(WithUser(r.Context(), user))
 
 		handler.ServeHTTP(w, r)
@@ -95,15 +114,7 @@ func (a *App) userMiddleware(handler http.Handler) http.Handler {
 
 		if session == nil {
 			// invalid session cookie, delete
-			http.SetCookie(w, &http.Cookie{
-				Name:     "session_id",
-				Value:    "",
-				Path:     "/",
-				Expires:  time.Unix(0, 0),
-				MaxAge:   -1,
-				HttpOnly: false,
-			})
-
+			DeleteSessionCookie(w)
 			util.Redirect(w, "/setup/secret")
 			return nil
 		}
@@ -117,15 +128,7 @@ func (a *App) userMiddleware(handler http.Handler) http.Handler {
 
 		if !session.Admin {
 			// not an admin, restart session
-			http.SetCookie(w, &http.Cookie{
-				Name:     "session_id",
-				Value:    "",
-				Path:     "/",
-				Expires:  time.Unix(0, 0),
-				MaxAge:   -1,
-				HttpOnly: false,
-			})
-
+			DeleteSessionCookie(w)
 			util.Redirect(w, "/setup/secret")
 			return nil
 		}
@@ -166,5 +169,62 @@ func (a *App) userHtmxRoute(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	w.Header().Set("Hx-Location", "/dashboard")
+	return nil
+}
+
+func (a *App) loginHtmxRoute(w http.ResponseWriter, r *http.Request) error {
+	ctx := r.Context()
+
+	if err := r.ParseForm(); err != nil {
+		return fmt.Errorf("parsing form: %w", err)
+	}
+
+	username := r.Form.Get("username")
+	if username == "" {
+		return templates.LoginForm(true).Render(ctx, w)
+	}
+
+	password := r.Form.Get("password")
+	if password == "" {
+		return templates.LoginForm(true).Render(ctx, w)
+	}
+
+	user, err := a.db.GetUserByCredentials(username, password)
+	if err != nil {
+		return fmt.Errorf("getting user: %w", err)
+	}
+
+	if user == nil {
+		return templates.LoginForm(true).Render(ctx, w)
+	}
+
+	session, err := a.db.NewSessionForUser(user.Id)
+	if err != nil {
+		return fmt.Errorf("creating session: %w", err)
+	}
+
+	CreateSessionCookie(w, session.Id)
+	w.Header().Set("Hx-Location", "/dashboard")
+
+	return nil
+}
+
+func (a *App) signOut(w http.ResponseWriter, r *http.Request) error {
+	ctx := r.Context()
+
+	session, ok := GetSession(ctx)
+	if !ok {
+		w.Header().Set("Hx-Location", "/login")
+		return nil
+	}
+
+	err := session.Delete(a.db)
+	if err != nil {
+		return fmt.Errorf("deleting session: %w", err)
+	}
+
+	DeleteSessionCookie(w)
+	w.Header().Set("Hx-Location", "/login")
+
 	return nil
 }
