@@ -43,6 +43,16 @@ func (a *App) loginMiddleware(handler http.Handler) http.Handler {
 			return nil
 		}
 
+		usersExist, err := a.db.UsersExist()
+		if err != nil {
+			return fmt.Errorf("getting if users exist: %w", err)
+		}
+
+		if !usersExist {
+			util.Redirect(w, "/setup/secret")
+			return nil
+		}
+
 		handler.ServeHTTP(w, r)
 		return nil
 	})
