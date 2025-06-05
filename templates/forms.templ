@@ -2,6 +2,10 @@ package templates
 
 import "github.com/BSFishy/mora-manager/templates/styles"
 
+templ textInput(attrs templ.Attributes) {
+	@input("text", attrs)
+}
+
 templ passwordInput(attrs templ.Attributes) {
 	@input("password", attrs)
 }

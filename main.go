@@ -81,11 +81,14 @@ func main() {
 
 	r.RouteFunc("/htmx", func(r *router.Router) {
 		r.Use(app.secretMiddleware).Post("/secret", app.secretHtmxRoute)
+		r.Use(app.userMiddleware).HandlePost("/user", router.ErrorHandlerFunc(app.userHtmxRoute))
 	})
 
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		util.Redirect(w, "/setup/secret")
 	})
+
+	r.Use(app.userProtected).HandleGet("/dashboard", templ.Handler(templates.Dashboard()))
 
 	r.RouteFunc("/setup", func(r *router.Router) {
 		r.Use(app.secretMiddleware).HandleGet("/secret", templ.Handler(templates.Secret()))

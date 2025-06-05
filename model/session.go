@@ -55,3 +55,13 @@ func (d *DB) GetSession(id string) (*Session, error) {
 
 	return nil, fmt.Errorf("getting session %s: %w", id, err)
 }
+
+func (s *Session) UpdateUserId(d *DB, userId string) error {
+	_, err := d.db.Exec("UPDATE sessions SET user_id = $1 WHERE id = $2", userId, s.Id)
+	if err != nil {
+		return fmt.Errorf("updating session user id: %w", err)
+	}
+
+	s.UserID = &userId
+	return nil
+}

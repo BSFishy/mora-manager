@@ -69,7 +69,7 @@ func (a *App) secretHtmxRoute(w http.ResponseWriter, r *http.Request) {
 		Name:     "session_id",
 		Value:    session.Id,
 		Path:     "/",
-		HttpOnly: true,
+		HttpOnly: false,
 		SameSite: http.SameSiteStrictMode,
 	})
 

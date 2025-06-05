@@ -8,7 +8,20 @@ import (
 	"github.com/BSFishy/mora-manager/util"
 )
 
-func (r *Router) register(method, path string, handler http.HandlerFunc) {
+type ErrorHandlerFunc func(http.ResponseWriter, *http.Request) error
+
+func (e ErrorHandlerFunc) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	logger := util.LogFromCtx(ctx)
+
+	err := e(w, r)
+	if err != nil {
+		logger.Error("failed to handle route", "err", err)
+		w.WriteHeader(http.StatusInternalServerError)
+	}
+}
+
+func (r *Router) register(method, path string, handler http.Handler) {
 	util.Assert(len(path) >= 1, "path must not be empty")
 	util.Assert(strings.HasPrefix(path, "/"), "path must start with /")
 
@@ -39,22 +52,20 @@ func (r *Router) Prefix(path string, handler http.Handler) {
 	*r.routes = append(*r.routes, route)
 }
 
-func (r *Router) handle(method, path string, handle http.Handler) {
-	r.register(method, path, func(w http.ResponseWriter, r *http.Request) {
-		handle.ServeHTTP(w, r)
-	})
-}
-
 func (r *Router) Get(path string, handler http.HandlerFunc) {
 	r.register(http.MethodGet, path, handler)
 }
 
 func (r *Router) HandleGet(path string, handle http.Handler) {
-	r.handle(http.MethodGet, path, handle)
+	r.register(http.MethodGet, path, handle)
 }
 
 func (r *Router) Post(path string, handler http.HandlerFunc) {
 	r.register(http.MethodPost, path, handler)
+}
+
+func (r *Router) HandlePost(path string, handle http.Handler) {
+	r.register(http.MethodPost, path, handle)
 }
 
 func (r *Router) Route(path string) *Router {

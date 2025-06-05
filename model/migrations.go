@@ -16,6 +16,7 @@ var migrations = map[string]string{
 		id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 		username TEXT NOT NULL UNIQUE,
 		password TEXT NOT NULL,
+		admin BOOLEAN NOT NULL DEFAULT false,
 
 		created_at TIMESTAMP NOT NULL DEFAULT now(),
 		updated_at TIMESTAMP NOT NULL DEFAULT now(),

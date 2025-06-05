@@ -1,7 +1,32 @@
 package templates
 
+import "github.com/BSFishy/mora-manager/templates/styles"
+
 templ User() {
 	@layout("Create admin user") {
-		<span>Hello world!</span>
+		<div class={ styles.Flex(), styles.W("100vw"), styles.Minh("100vh"), styles.FlexCol(), styles.Justify("center"), styles.Align("center"), styles.Bg(styles.Emerald[300]), styles.Gap(2) }>
+			<h1 class={ styles.TextSize("4xl"), styles.Color(styles.Emerald[800]), styles.My(2) }>Mora</h1>
+			<p class={ styles.TextSize("lg"), styles.Maxw("450px"), styles.TextAlign("center"), styles.My(2) }>
+				Please provide details for the admin user
+			</p>
+			<form
+				autocomplete="off"
+				hx-post="/htmx/user"
+				class={ styles.Flex(), styles.FlexCol(), styles.Align("center"), styles.Gap(3) }
+			>
+				@UserForm(false)
+			</form>
+		</div>
+	}
+}
+
+templ UserForm(invalidInput bool) {
+	@textInput(templ.Attributes{"placeholder": "Username", "name": "username", "required": "required"})
+	@passwordInput(templ.Attributes{"placeholder": "Password", "name": "password", "required": "required"})
+	@submit(templ.Attributes{}) {
+		Submit
+	}
+	if invalidInput {
+		<span class={ styles.Color(styles.Red[700]) }>Please enter valid credentials</span>
 	}
 }
