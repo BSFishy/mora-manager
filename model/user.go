@@ -1,6 +1,7 @@
 package model
 
 import (
+	"database/sql"
 	"fmt"
 	"time"
 
@@ -65,6 +66,10 @@ func (d *DB) GetUserByCredentials(username string, password string) (*User, erro
 
 	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password))
 	if deferedErr != nil {
+		if deferedErr == sql.ErrNoRows {
+			return nil, nil
+		}
+
 		return nil, deferedErr
 	}
 
