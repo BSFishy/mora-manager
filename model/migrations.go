@@ -1,6 +1,7 @@
 package model
 
 import (
+	"context"
 	"fmt"
 )
 
@@ -58,8 +59,8 @@ var migrations = map[string]string{
 	);`,
 }
 
-func (d *DB) SetupMigrations() error {
-	_, err := d.db.Exec(`CREATE TABLE IF NOT EXISTS schema_migrations (
+func (d *DB) SetupMigrations(ctx context.Context) error {
+	_, err := d.db.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS schema_migrations (
 		version TEXT PRIMARY KEY,
 		applied_at TIMESTAMP NOT NULL DEFAULT now()
 	);`)
@@ -67,19 +68,19 @@ func (d *DB) SetupMigrations() error {
 		return fmt.Errorf("creating the migrations table: %w", err)
 	}
 
-	dbMigrations, err := d.getMigrations()
+	dbMigrations, err := d.getMigrations(ctx)
 	if err != nil {
 		return fmt.Errorf("getting migrations: %w", err)
 	}
 
 	for version, script := range migrations {
 		if !includesMigration(version, dbMigrations) {
-			_, err = d.db.Exec(script)
+			_, err = d.db.ExecContext(ctx, script)
 			if err != nil {
 				return fmt.Errorf("running migration %s: %w", version, err)
 			}
 
-			_, err := d.db.Exec("INSERT INTO schema_migrations (version) VALUES ($1)", version)
+			_, err := d.db.ExecContext(ctx, "INSERT INTO schema_migrations (version) VALUES ($1)", version)
 			if err != nil {
 				return fmt.Errorf("inserting version %s into migrations table: %w", version, err)
 			}
@@ -104,8 +105,8 @@ func includesMigration(version string, migrations []migration) bool {
 	return false
 }
 
-func (d *DB) getMigrations() ([]migration, error) {
-	rows, err := d.db.Query("SELECT version FROM schema_migrations")
+func (d *DB) getMigrations(ctx context.Context) ([]migration, error) {
+	rows, err := d.db.QueryContext(ctx, "SELECT version FROM schema_migrations")
 	if err != nil {
 		return nil, fmt.Errorf("selecting versions: %w", err)
 	}

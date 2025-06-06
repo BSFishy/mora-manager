@@ -23,13 +23,15 @@ func GetUser(ctx context.Context) (*model.User, bool) {
 
 func (a *App) loginMiddleware(handler http.Handler) http.Handler {
 	return util.ErrorHandle(func(w http.ResponseWriter, r *http.Request) error {
+		ctx := r.Context()
+
 		sessionId, err := a.getSessionCookie(r)
 		if err != nil {
 			return fmt.Errorf("getting session id: %w", err)
 		}
 
 		if sessionId != nil {
-			usersExist, err := a.db.UsersExist()
+			usersExist, err := a.db.UsersExist(ctx)
 			if err != nil {
 				return fmt.Errorf("getting if users exist: %w", err)
 			}
@@ -43,7 +45,7 @@ func (a *App) loginMiddleware(handler http.Handler) http.Handler {
 			return nil
 		}
 
-		usersExist, err := a.db.UsersExist()
+		usersExist, err := a.db.UsersExist(ctx)
 		if err != nil {
 			return fmt.Errorf("getting if users exist: %w", err)
 		}
@@ -60,6 +62,8 @@ func (a *App) loginMiddleware(handler http.Handler) http.Handler {
 
 func (a *App) userProtected(handler http.Handler) http.Handler {
 	return util.ErrorHandle(func(w http.ResponseWriter, r *http.Request) error {
+		ctx := r.Context()
+
 		sessionId, err := a.getSessionCookie(r)
 		if err != nil {
 			return fmt.Errorf("getting session cookie: %w", err)
@@ -70,7 +74,7 @@ func (a *App) userProtected(handler http.Handler) http.Handler {
 			return nil
 		}
 
-		session, err := a.db.GetSession(*sessionId)
+		session, err := a.db.GetSession(ctx, *sessionId)
 		if err != nil {
 			// invalid session cookie probably. let's be safe
 			DeleteSessionCookie(w)
@@ -85,13 +89,12 @@ func (a *App) userProtected(handler http.Handler) http.Handler {
 			return nil
 		}
 
-		user, err := a.db.GetUserById(*session.UserID)
+		user, err := a.db.GetUserById(ctx, *session.UserID)
 		if err != nil {
 			return fmt.Errorf("getting user: %w", err)
 		}
 
-		r = r.WithContext(WithSession(r.Context(), session))
-		r = r.WithContext(WithUser(r.Context(), user))
+		r = r.WithContext(WithUser(WithSession(ctx, session), user))
 
 		handler.ServeHTTP(w, r)
 		return nil
@@ -100,7 +103,9 @@ func (a *App) userProtected(handler http.Handler) http.Handler {
 
 func (a *App) userMiddleware(handler http.Handler) http.Handler {
 	return util.ErrorHandle(func(w http.ResponseWriter, r *http.Request) error {
-		usersExist, err := a.db.UsersExist()
+		ctx := r.Context()
+
+		usersExist, err := a.db.UsersExist(ctx)
 		if err != nil {
 			return fmt.Errorf("checking if users exist: %w", err)
 		}
@@ -120,7 +125,7 @@ func (a *App) userMiddleware(handler http.Handler) http.Handler {
 			return nil
 		}
 
-		session, err := a.db.GetSession(*sessionId)
+		session, err := a.db.GetSession(ctx, *sessionId)
 		if err != nil {
 			return fmt.Errorf("getting session: %w", err)
 		}
@@ -139,7 +144,7 @@ func (a *App) userMiddleware(handler http.Handler) http.Handler {
 			return nil
 		}
 
-		r = r.WithContext(WithSession(r.Context(), session))
+		r = r.WithContext(WithSession(ctx, session))
 
 		handler.ServeHTTP(w, r)
 		return nil
@@ -163,13 +168,13 @@ func (a *App) userHtmxRoute(w http.ResponseWriter, r *http.Request) error {
 		return templates.UserForm(true).Render(ctx, w)
 	}
 
-	user, err := a.db.NewAdminUser(username, password)
+	user, err := a.db.NewAdminUser(ctx, username, password)
 	if err != nil {
 		return fmt.Errorf("creating new user: %w", err)
 	}
 
 	session, _ := GetSession(ctx)
-	err = session.UpdateUserId(a.db, user.Id)
+	err = session.UpdateUserId(ctx, a.db, user.Id)
 	if err != nil {
 		return fmt.Errorf("updating session user id: %w", err)
 	}
@@ -195,7 +200,7 @@ func (a *App) loginHtmxRoute(w http.ResponseWriter, r *http.Request) error {
 		return templates.LoginForm(true).Render(ctx, w)
 	}
 
-	user, err := a.db.GetUserByCredentials(username, password)
+	user, err := a.db.GetUserByCredentials(ctx, username, password)
 	if err != nil {
 		return fmt.Errorf("getting user: %w", err)
 	}
@@ -204,7 +209,7 @@ func (a *App) loginHtmxRoute(w http.ResponseWriter, r *http.Request) error {
 		return templates.LoginForm(true).Render(ctx, w)
 	}
 
-	session, err := a.db.NewSessionForUser(user.Id)
+	session, err := a.db.NewSessionForUser(ctx, user.Id)
 	if err != nil {
 		return fmt.Errorf("creating session: %w", err)
 	}
@@ -224,7 +229,7 @@ func (a *App) signOut(w http.ResponseWriter, r *http.Request) error {
 		return nil
 	}
 
-	err := session.Delete(a.db)
+	err := session.Delete(ctx, a.db)
 	if err != nil {
 		return fmt.Errorf("deleting session: %w", err)
 	}

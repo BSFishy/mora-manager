@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"embed"
 	"fmt"
 	"log/slog"
@@ -24,6 +25,8 @@ type App struct {
 }
 
 func NewApp() App {
+	ctx := context.Background()
+
 	clientset, err := NewClientset()
 	if err != nil {
 		panic(err)
@@ -34,19 +37,19 @@ func NewApp() App {
 		panic(err)
 	}
 
-	err = db.SetupMigrations()
+	err = db.SetupMigrations(ctx)
 	if err != nil {
 		panic(err)
 	}
 
-	usersExist, err := db.UsersExist()
+	usersExist, err := db.UsersExist(ctx)
 	if err != nil {
 		panic(err)
 	}
 
 	var secret string
 	if !usersExist {
-		secret, err = db.GetOrCreateSecret()
+		secret, err = db.GetOrCreateSecret(ctx)
 		if err != nil {
 			panic(err)
 		}

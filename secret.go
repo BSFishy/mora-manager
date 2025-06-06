@@ -10,7 +10,9 @@ import (
 
 func (a *App) secretMiddleware(handler http.Handler) http.Handler {
 	return util.ErrorHandle(func(w http.ResponseWriter, r *http.Request) error {
-		usersExist, err := a.db.UsersExist()
+		ctx := r.Context()
+
+		usersExist, err := a.db.UsersExist(ctx)
 		if err != nil {
 			return fmt.Errorf("checking if users exist: %w", err)
 		}
@@ -57,7 +59,7 @@ func (a *App) secretHtmxRoute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	session, err := a.db.NewSetupSession()
+	session, err := a.db.NewSetupSession(ctx)
 	if err != nil {
 		logger.Error("failed to create new admin session", "err", err)
 		w.WriteHeader(http.StatusInternalServerError)
