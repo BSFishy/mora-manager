@@ -31,7 +31,7 @@ var buttonStyles = templ.CSSClasses{
 
 templ submit(attrs templ.Attributes) {
 	if attrs["type"] == "link" {
-		<a class={ buttonStyles, attrs["class"] } role="button" { attrs... }>
+		<a hx-boost="true" class={ buttonStyles, attrs["class"] } role="button" { attrs... }>
 			{ children... }
 		</a>
 	} else {

@@ -3,7 +3,7 @@ package templates
 import "github.com/BSFishy/mora-manager/templates/styles"
 
 templ link(attrs templ.Attributes) {
-	<a class={ styles.Color(styles.Emerald[700]), styles.Weight("bold"), attrs["class"] } { attrs... }>
+	<a hx-boost="true" class={ styles.Color(styles.Emerald[700]), styles.Weight("bold"), attrs["class"] } { attrs... }>
 		{ children... }
 	</a>
 }
