@@ -51,6 +51,10 @@ css Rounded(size string) {
 	border-radius: { size };
 }
 
+css P(size float64) {
+	padding: { templ.SafeCSSProperty(fmt.Sprintf("%frem", size * spacing)) };
+}
+
 css Px(size float64) {
 	padding-inline: { templ.SafeCSSProperty(fmt.Sprintf("%frem", size * spacing)) };
 }

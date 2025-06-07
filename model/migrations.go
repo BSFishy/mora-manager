@@ -24,6 +24,17 @@ var migrations = map[string]string{
 		deleted_at TIMESTAMP
 	);
 
+	CREATE TABLE tokens (
+		id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+		user_id UUID NOT NULL,
+
+		created_at TIMESTAMP NOT NULL DEFAULT now(),
+		updated_at TIMESTAMP NOT NULL DEFAULT now(),
+		deleted_at TIMESTAMP,
+
+	  FOREIGN KEY (user_id) REFERENCES users(id)
+	);
+
 	CREATE TABLE sessions (
 		id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 		user_id UUID,

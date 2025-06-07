@@ -1,10 +1,32 @@
 package templates
 
-templ Dashboard() {
+import "github.com/BSFishy/mora-manager/templates/styles"
+import "github.com/BSFishy/mora-manager/model"
+
+type DashboardProps struct {
+	User *model.User
+}
+
+templ Dashboard(props DashboardProps) {
 	@layout("Dashboard") {
-		<span>Hello world!</span>
-		@submit(templ.Attributes{"hx-post": "/htmx/signout"}) {
-			Sign out
-		}
+		<div
+			class={ styles.W("100vw"), styles.Minh("100vh"), styles.Flex(), styles.FlexRow(), styles.FlexWrap(), styles.Justify("center"), styles.Gap(3), styles.P(4) }
+		>
+			<div class={ styles.W("600px") }>
+				<span>Hello world!</span>
+			</div>
+			<div
+				class={ styles.W("400px"), styles.H("min-content"), styles.Border(), styles.BorderColor(styles.Emerald[700]), styles.Rounded(styles.Radius["md"]), styles.BorderWidth("3px"), styles.P(3) }
+			>
+				<span>{ props.User.Username }</span>
+				<br/>
+				@submit(templ.Attributes{"type": "link", "href": "/tokens"}) {
+					Tokens
+				}
+				@submit(templ.Attributes{"hx-post": "/htmx/signout", "class": templ.Classes(styles.Mx(2))}) {
+					Sign out
+				}
+			</div>
+		</div>
 	}
 }

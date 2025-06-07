@@ -91,14 +91,40 @@ func main() {
 
 		r.Use(app.loginMiddleware).HandlePost("/login", router.ErrorHandlerFunc(app.loginHtmxRoute))
 		r.Use(app.userProtected).HandlePost("/signout", router.ErrorHandlerFunc(app.signOut))
+
+		r.RouteFunc("/token", func(r *router.Router) {
+			r.Use(app.userProtected).HandlePost("/", router.ErrorHandlerFunc(app.tokenHtmxRoute))
+			r.Use(app.userProtected).HandlePost("/revoke", router.ErrorHandlerFunc(app.revokeTokenHtmxRoute))
+		})
 	})
 
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		util.Redirect(w, "/setup/secret")
 	})
 
-	r.Use(app.userProtected).HandleGet("/dashboard", templ.Handler(templates.Dashboard()))
 	r.Use(app.loginMiddleware).HandleGet("/login", templ.Handler(templates.Login()))
+	r.Use(app.userProtected).HandleGet("/dashboard", router.ErrorHandlerFunc(func(w http.ResponseWriter, r *http.Request) error {
+		ctx := r.Context()
+		user, _ := GetUser(ctx)
+
+		return templates.Dashboard(templates.DashboardProps{
+			User: user,
+		}).Render(ctx, w)
+	}))
+
+	r.Use(app.userProtected).HandleGet("/tokens", router.ErrorHandlerFunc(func(w http.ResponseWriter, r *http.Request) error {
+		ctx := r.Context()
+		user, _ := GetUser(ctx)
+
+		tokens, err := app.getTokenIds(ctx, user.Id)
+		if err != nil {
+			return fmt.Errorf("getting tokens: %w", err)
+		}
+
+		return templates.Tokens(templates.TokensProps{
+			Tokens: tokens,
+		}).Render(ctx, w)
+	}))
 
 	r.RouteFunc("/setup", func(r *router.Router) {
 		r.Use(app.secretMiddleware).HandleGet("/secret", templ.Handler(templates.Secret()))

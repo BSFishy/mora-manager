@@ -26,6 +26,10 @@ func (r *Router) register(method, path string, handler http.Handler) {
 	util.Assert(strings.HasPrefix(path, "/"), "path must start with /")
 
 	routePath := fmt.Sprintf("%s/%s", r.path, path[1:])
+	if path == "/" {
+		routePath = r.path
+	}
+
 	route := route{
 		patternType: pattern,
 		method:      &method,

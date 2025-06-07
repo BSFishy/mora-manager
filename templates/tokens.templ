@@ -1,0 +1,42 @@
+package templates
+
+import "github.com/BSFishy/mora-manager/templates/styles"
+
+type TokensProps struct {
+	Tokens []string
+}
+
+templ Tokens(props TokensProps) {
+	@layout("Tokens") {
+		<div
+			class={ styles.W("100vw"), styles.Minh("100vh"), styles.Flex(), styles.FlexCol(), styles.FlexWrap(), styles.Align("center"), styles.Gap(3), styles.P(4) }
+		>
+			<h1 class={ styles.TextSize("4xl") }>Tokens</h1>
+			@link(templ.Attributes{"href": "/dashboard"}) {
+				Home
+			}
+			@submit(templ.Attributes{"hx-post": "/htmx/token", "hx-target": "#tokens"}) {
+				Create token
+			}
+			<div id="tokens">
+				@TokenList(props.Tokens)
+			</div>
+		</div>
+	}
+}
+
+templ TokenList(tokens []string) {
+	for _, token := range tokens {
+		<div
+			class={ styles.Flex(), styles.FlexRow(), styles.Align("center"), styles.Gap(3) }
+		>
+			<span>{ token }</span>
+			<form hx-post="/htmx/token/revoke" hx-target="#tokens">
+				<input type="hidden" name="id" value={ token }/>
+				@submit(templ.Attributes{}) {
+					Revoke
+				}
+			</form>
+		</div>
+	}
+}
