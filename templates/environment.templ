@@ -1,0 +1,27 @@
+package templates
+
+import "github.com/BSFishy/mora-manager/templates/styles"
+
+templ CreateEnvironment() {
+	@layout("Create environment") {
+		<div class={ styles.Flex(), styles.W("100vw"), styles.Minh("100vh"), styles.FlexCol(), styles.Justify("center"), styles.Align("center"), styles.Gap(2) }>
+			@link(templ.Attributes{"href": "/dashboard"}) {
+				Home
+			}
+			<form hx-post="/htmx/environment" class={ styles.Flex(), styles.FlexCol(), styles.Align("center"), styles.Gap(3) }>
+				@CreateEnvironmentForm(false)
+			</form>
+		</div>
+	}
+}
+
+templ CreateEnvironmentForm(invalidInput bool) {
+	@textInput(templ.Attributes{"name": "name", "placeholder": "Name"})
+	@textInput(templ.Attributes{"name": "slug", "placeholder": "Slug"})
+	@submit(templ.Attributes{}) {
+		Submit
+	}
+	if invalidInput {
+		<span class={ styles.Color(styles.Red[700]) }>Please enter valid options</span>
+	}
+}

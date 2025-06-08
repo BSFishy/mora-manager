@@ -92,6 +92,11 @@ func main() {
 		r.Use(app.loginMiddleware).HandlePost("/login", router.ErrorHandlerFunc(app.loginHtmxRoute))
 		r.Use(app.userProtected).HandlePost("/signout", router.ErrorHandlerFunc(app.signOut))
 
+		r.RouteFunc("/environment", func(r *router.Router) {
+			r.Use(app.userProtected).HandlePost("/", router.ErrorHandlerFunc(app.createEnvironmentHtmxRoute))
+			r.Use(app.userProtected).HandleDelete("/", router.ErrorHandlerFunc(app.deleteEnvironmentHtmxRoute))
+		})
+
 		r.RouteFunc("/token", func(r *router.Router) {
 			r.Use(app.userProtected).HandlePost("/", router.ErrorHandlerFunc(app.tokenHtmxRoute))
 			r.Use(app.userProtected).HandlePost("/revoke", router.ErrorHandlerFunc(app.revokeTokenHtmxRoute))
@@ -107,11 +112,18 @@ func main() {
 		ctx := r.Context()
 		user, _ := GetUser(ctx)
 
+		environments, err := app.db.GetUserEnvironments(ctx, user.Id)
+		if err != nil {
+			return fmt.Errorf("getting environments: %w", err)
+		}
+
 		return templates.Dashboard(templates.DashboardProps{
-			User: user,
+			User:         user,
+			Environments: environments,
 		}).Render(ctx, w)
 	}))
 
+	r.Use(app.userProtected).HandleGet("/environment", templ.Handler(templates.CreateEnvironment()))
 	r.Use(app.userProtected).HandleGet("/tokens", router.ErrorHandlerFunc(func(w http.ResponseWriter, r *http.Request) error {
 		ctx := r.Context()
 		user, _ := GetUser(ctx)

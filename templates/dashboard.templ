@@ -4,7 +4,8 @@ import "github.com/BSFishy/mora-manager/templates/styles"
 import "github.com/BSFishy/mora-manager/model"
 
 type DashboardProps struct {
-	User *model.User
+	User         *model.User
+	Environments []model.Environment
 }
 
 templ Dashboard(props DashboardProps) {
@@ -13,7 +14,14 @@ templ Dashboard(props DashboardProps) {
 			class={ styles.W("100vw"), styles.Minh("100vh"), styles.Flex(), styles.FlexRow(), styles.FlexWrap(), styles.Justify("center"), styles.Gap(3), styles.P(4) }
 		>
 			<div class={ styles.W("600px") }>
-				<span>Hello world!</span>
+				@submit(templ.Attributes{"type": "link", "href": "/environment"}) {
+					Create environment
+				}
+				if len(props.Environments) > 0 {
+					<div id="environments">
+						@DashboardEnvironments(props.Environments)
+					</div>
+				}
 			</div>
 			<div
 				class={ styles.W("400px"), styles.H("min-content"), styles.Border(), styles.BorderColor(styles.Emerald[700]), styles.Rounded(styles.Radius["md"]), styles.BorderWidth("3px"), styles.P(3) }
@@ -29,4 +37,32 @@ templ Dashboard(props DashboardProps) {
 			</div>
 		</div>
 	}
+}
+
+templ DashboardEnvironments(environments []model.Environment) {
+	<table>
+		<thead>
+			<tr>
+				<th class={ styles.P(2) }>Name</th>
+				<th class={ styles.P(2) }>Slug</th>
+				<th></th>
+			</tr>
+		</thead>
+		<tbody>
+			for _, environment := range environments {
+				<tr class={ styles.BorderWidthTop("1px") }>
+					<td class={ styles.P(2) }>{ environment.Name }</td>
+					<td class={ styles.P(2) }>{ environment.Slug }</td>
+					<td class={ styles.P(2) }>
+						<form hx-delete="/htmx/environment" hx-target="#environments">
+							<input type="hidden" name="id" value={ environment.Id }/>
+							@submit(templ.Attributes{}) {
+								Delete
+							}
+						</form>
+					</td>
+				</tr>
+			}
+		</tbody>
+	</table>
 }

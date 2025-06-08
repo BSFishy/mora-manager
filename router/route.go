@@ -72,6 +72,10 @@ func (r *Router) HandlePost(path string, handle http.Handler) {
 	r.register(http.MethodPost, path, handle)
 }
 
+func (r *Router) HandleDelete(path string, handle http.Handler) {
+	r.register(http.MethodDelete, path, handle)
+}
+
 func (r *Router) Route(path string) *Router {
 	util.Assert(len(path) >= 2, "path must not be empty")
 	util.Assert(strings.HasPrefix(path, "/"), "path must start with /")
