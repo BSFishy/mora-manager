@@ -74,7 +74,7 @@ func main() {
 
 	r.RouteFunc("/api", func(r *router.Router) {
 		r.RouteFunc("/v1", func(r *router.Router) {
-			r.Get("/ping", func(w http.ResponseWriter, r *http.Request) {
+			r.Use(app.apiMiddleware).Get("/ping", func(w http.ResponseWriter, r *http.Request) {
 				fmt.Fprint(w, "pong")
 			})
 

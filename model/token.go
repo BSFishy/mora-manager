@@ -71,6 +71,38 @@ func (d *DB) GetToken(ctx context.Context, id string) (*Token, error) {
 	return nil, err
 }
 
+func (d *DB) GetTokenAndUser(ctx context.Context, id string) (*Token, *User, error) {
+	token := Token{
+		Id: id,
+	}
+
+	user := User{}
+
+	err := d.db.QueryRowContext(ctx, `
+		SELECT
+			tokens.user_id, tokens.created_at, tokens.updated_at,
+			users.id, users.username, users.admin, users.created_at, users.updated_at
+		FROM tokens
+		INNER JOIN users
+			ON tokens.user_id = users.id
+		WHERE tokens.id = $1
+			AND tokens.deleted_at IS NULL
+			AND users.deleted_at IS NULL
+		`, id).Scan(
+		&token.UserID, &token.CreatedAt, &token.UpdatedAt,
+		&user.Id, &user.Username, &user.Admin, &user.CreatedAt, &user.UpdatedAt,
+	)
+	if err == nil {
+		return &token, &user, nil
+	}
+
+	if err == sql.ErrNoRows {
+		return nil, nil, nil
+	}
+
+	return nil, nil, err
+}
+
 func (t *Token) Delete(ctx context.Context, d *DB) error {
 	_, err := d.db.ExecContext(ctx, "UPDATE tokens SET deleted_at = now() WHERE id = $1", t.Id)
 	return err

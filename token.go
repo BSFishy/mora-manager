@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 
+	"github.com/BSFishy/mora-manager/router"
 	"github.com/BSFishy/mora-manager/templates"
 )
 
@@ -79,4 +81,32 @@ func (a *App) revokeTokenHtmxRoute(w http.ResponseWriter, r *http.Request) error
 	}
 
 	return templates.TokenList(tokens).Render(ctx, w)
+}
+
+func (a *App) apiMiddleware(handler http.Handler) http.Handler {
+	return router.ErrorHandlerFunc(func(w http.ResponseWriter, r *http.Request) error {
+		ctx := r.Context()
+
+		authorization := r.Header.Get("Authorization")
+		if authorization == "" || !strings.HasPrefix(authorization, "Bearer ") {
+			w.WriteHeader(http.StatusBadRequest)
+			return nil
+		}
+
+		tokenId := authorization[7:]
+		token, user, err := a.db.GetTokenAndUser(ctx, tokenId)
+		if err != nil {
+			return fmt.Errorf("getting token and user: %w", err)
+		}
+
+		if token == nil || user == nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return nil
+		}
+
+		r = r.WithContext(WithUser(ctx, user))
+
+		handler.ServeHTTP(w, r)
+		return nil
+	})
 }
