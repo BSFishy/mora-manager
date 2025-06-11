@@ -3,40 +3,57 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"log/slog"
 	"net/http"
 
-	"github.com/BSFishy/mora-manager/util"
+	"github.com/BSFishy/mora-manager/router"
 )
 
-type DeploymentRequest struct {
-	Modules []Module `json:"modules"`
+type DeploymentResponse struct {
+	Id string `json:"id"`
 }
 
-func (a *App) createDeployment(w http.ResponseWriter, req *http.Request) {
-	var body DeploymentRequest
-	if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
+func (a *App) createDeployment(w http.ResponseWriter, req *http.Request) error {
+	var config ApiConfig
+	if err := json.NewDecoder(req.Body).Decode(&config); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		return
+		return nil
 	}
 
 	ctx := req.Context()
-	logger := util.LogFromCtx(ctx)
+	user, _ := GetUser(ctx)
 
-	for _, module := range body.Modules {
-		moduleLogger := logger.With(slog.Group("module", "name", module.Name))
+	params := router.Params(req)
+	environmentSlug := params["slug"]
 
-		for _, service := range module.Services {
-			serviceLogger := moduleLogger.With(slog.Group("service", "name", service.Name))
-
-			serviceLogger.Info("deploying service")
-
-			err := service.Deploy(ctx, a.clientset, module.Name)
-			if err != nil {
-				serviceLogger.Error("failed to deploy service", "err", err)
-			}
-		}
+	environment, err := a.db.GetEnvironmentBySlug(ctx, user.Id, environmentSlug)
+	if err != nil {
+		return fmt.Errorf("getting environment: %w", err)
 	}
 
-	fmt.Fprint(w, "pong")
+	if environment == nil || environment.UserId != user.Id {
+		w.WriteHeader(http.StatusNotFound)
+		return nil
+	}
+
+	if err = environment.CancelInProgressDeployments(ctx, a.db); err != nil {
+		return fmt.Errorf("cancelling deployments: %w", err)
+	}
+
+	services, err := config.TopologicalSort()
+	if err != nil {
+		return fmt.Errorf("sorting services: %w", err)
+	}
+
+	deployment, err := environment.NewDeployment(ctx, a.db, Config{
+		Services: services,
+	})
+	if err != nil {
+		return fmt.Errorf("creating deployment: %w", err)
+	}
+
+	go a.deploy(deployment)
+
+	return json.NewEncoder(w).Encode(DeploymentResponse{
+		Id: deployment.Id,
+	})
 }

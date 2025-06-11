@@ -80,7 +80,7 @@ func main() {
 
 			r.RouteFunc("/environment", func(r *router.Router) {
 				r.RouteFunc("/:slug", func(r *router.Router) {
-					r.Use(app.apiMiddleware).Post("/deployment", app.createDeployment)
+					r.Use(app.apiMiddleware).HandlePost("/deployment", router.ErrorHandlerFunc(app.createDeployment))
 				})
 			})
 		})

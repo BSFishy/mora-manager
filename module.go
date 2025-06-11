@@ -1,15 +1,7 @@
 package main
 
 import (
-	"context"
-	"fmt"
-	"time"
-
-	"github.com/BSFishy/mora-manager/util"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
+	"errors"
 )
 
 type Module struct {
@@ -18,64 +10,76 @@ type Module struct {
 }
 
 type Service struct {
-	Name  string     `json:"name"`
-	Image Expression `json:"image"`
+	Name     string       `json:"name"`
+	Image    Expression   `json:"image"`
+	Requires []Expression `json:"requires"`
 }
 
-// TODO: this should be a more comprehensive evaluation system where we create a
-// dependency graph of services/modules, split everything out into steps then
-// action the steps ad hoc as part of the setup process.
-func (s *Service) EvaluateImage() string {
-	return *s.Image.Atom.String
+type ServiceRef struct {
+	Module  string
+	Service string
 }
 
-func (s *Service) Deploy(ctx context.Context, clientset *kubernetes.Clientset, moduleName string) error {
-	name := util.SanitizeDNS1123Subdomain(fmt.Sprintf("%s-%s", moduleName, s.Name))
-	podspec := &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: "default",
-		},
-		Spec: corev1.PodSpec{
-			Containers: []corev1.Container{
-				{
-					Name:  util.SanitizeDNS1123Label(s.Name),
-					Image: s.EvaluateImage(),
-				},
-			},
-		},
-	}
-
-	_, err := clientset.CoreV1().Pods("default").Get(ctx, name, metav1.GetOptions{})
-	if err == nil {
-		err = clientset.CoreV1().Pods("default").Delete(ctx, name, metav1.DeleteOptions{})
-		if err != nil {
-			return fmt.Errorf("deleting pod: %w", err)
+func (s *Service) RequiredServices() ([]ServiceRef, error) {
+	services := []ServiceRef{}
+	for _, service := range s.Requires {
+		list := service.List
+		if list == nil {
+			return nil, errors.New("required service is not a list")
 		}
 
-		for {
-			_, err := clientset.CoreV1().Pods("default").Get(ctx, name, metav1.GetOptions{})
-			if err != nil {
-				if errors.IsNotFound(err) {
-					break
-				}
-
-				return fmt.Errorf("checking pod deletion: %w", err)
-			}
-
-			time.Sleep(500 * time.Millisecond)
+		expr := *list
+		if len(expr) != 3 {
+			return nil, errors.New("requires function call invalid")
 		}
-	} else if !errors.IsNotFound(err) {
-		return fmt.Errorf("getting pod: %w", err)
+
+		f := expr[0].AsIdentifier()
+		if f == nil {
+			return nil, errors.New("list function is not an identifier")
+		}
+
+		if *f != "service" {
+			return nil, errors.New("requires function is not service")
+		}
+
+		moduleName := expr[1].AsIdentifier()
+		if moduleName == nil {
+			return nil, errors.New("service reference module name is not an identifier")
+		}
+
+		serviceName := expr[2].AsIdentifier()
+		if serviceName == nil {
+			return nil, errors.New("service reference service name is not an identifier")
+		}
+
+		services = append(services, ServiceRef{
+			Module:  *moduleName,
+			Service: *serviceName,
+		})
 	}
 
-	_, err = clientset.CoreV1().Pods("default").Create(ctx, podspec, metav1.CreateOptions{})
-	return err
+	return services, nil
 }
 
 type Expression struct {
 	Atom *Atom         `json:"atom,omitempty"`
 	List *[]Expression `json:"list,omitempty"`
+}
+
+func (e *Expression) AsIdentifier() *string {
+	if e.Atom == nil {
+		return nil
+	}
+
+	return e.Atom.Identifier
+}
+
+func (e *Expression) AsString() *string {
+	if e.Atom == nil {
+		return nil
+	}
+
+	return e.Atom.String
 }
 
 type Atom struct {

@@ -63,6 +63,8 @@ var migrations = map[string]string{
 		id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 		environment_id UUID NOT NULL,
 		status TEXT NOT NULL,
+		config JSONB NOT NULL,
+		state JSONB,
 
 		created_at TIMESTAMP NOT NULL DEFAULT now(),
 		updated_at TIMESTAMP NOT NULL DEFAULT now(),
