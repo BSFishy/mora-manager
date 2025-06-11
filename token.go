@@ -89,7 +89,7 @@ func (a *App) apiMiddleware(handler http.Handler) http.Handler {
 
 		authorization := r.Header.Get("Authorization")
 		if authorization == "" || !strings.HasPrefix(authorization, "Bearer ") {
-			w.WriteHeader(http.StatusBadRequest)
+			w.WriteHeader(http.StatusUnauthorized)
 			return nil
 		}
 
@@ -100,7 +100,7 @@ func (a *App) apiMiddleware(handler http.Handler) http.Handler {
 		}
 
 		if token == nil || user == nil {
-			w.WriteHeader(http.StatusBadRequest)
+			w.WriteHeader(http.StatusUnauthorized)
 			return nil
 		}
 
