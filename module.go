@@ -2,11 +2,27 @@ package main
 
 import (
 	"errors"
+	"fmt"
+
+	"github.com/BSFishy/mora-manager/util"
 )
 
 type Module struct {
-	Name     string    `json:"name"`
-	Services []Service `json:"services"`
+	Name     string         `json:"name"`
+	Services []Service      `json:"services"`
+	Configs  []ModuleConfig `json:"configs"`
+}
+
+type ModuleConfig struct {
+	Name        string      `json:"name"`
+	Description *Expression `json:"description,omitempty"`
+}
+
+func (m ModuleConfig) WithModuleName(module string) ModuleConfig {
+	return ModuleConfig{
+		Name:        fmt.Sprintf("%s/%s", module, m.Name),
+		Description: m.Description,
+	}
 }
 
 type Service struct {
@@ -33,7 +49,7 @@ func (s *Service) RequiredServices() ([]ServiceRef, error) {
 			return nil, errors.New("requires function call invalid")
 		}
 
-		f := expr[0].AsIdentifier()
+		f := expr[0].asIdentifier()
 		if f == nil {
 			return nil, errors.New("list function is not an identifier")
 		}
@@ -42,12 +58,12 @@ func (s *Service) RequiredServices() ([]ServiceRef, error) {
 			return nil, errors.New("requires function is not service")
 		}
 
-		moduleName := expr[1].AsIdentifier()
+		moduleName := expr[1].asIdentifier()
 		if moduleName == nil {
 			return nil, errors.New("service reference module name is not an identifier")
 		}
 
-		serviceName := expr[2].AsIdentifier()
+		serviceName := expr[2].asIdentifier()
 		if serviceName == nil {
 			return nil, errors.New("service reference service name is not an identifier")
 		}
@@ -61,12 +77,147 @@ func (s *Service) RequiredServices() ([]ServiceRef, error) {
 	return services, nil
 }
 
-type Expression struct {
-	Atom *Atom         `json:"atom,omitempty"`
-	List *[]Expression `json:"list,omitempty"`
+type ListExpression []Expression
+
+func (l *ListExpression) IsTrivialExpression() bool {
+	if len(*l) != 1 {
+		return false
+	}
+
+	e := (*l)[0]
+	return e.Atom != nil
 }
 
-func (e *Expression) AsIdentifier() *string {
+func (l *ListExpression) GetFunctionName() (*string, error) {
+	if len(*l) < 1 {
+		return nil, errors.New("invalid empty list expression")
+	}
+
+	e := (*l)[0]
+	if e.Atom == nil {
+		return nil, errors.New("invalid function call")
+	}
+
+	// TODO: do i want this to just return nil if its not an identifier? instead
+	// of erroring?
+	atom := e.Atom
+	return atom.EvaluateIdentifier()
+}
+
+type Expression struct {
+	Atom *Atom           `json:"atom,omitempty"`
+	List *ListExpression `json:"list,omitempty"`
+}
+
+func (e *Expression) GetConfigPoints(config Config, state map[string]any, moduleName string) ([]ConfigPoint, error) {
+	util.AssertEnum("invalid expression", e.Atom, e.List)
+
+	if e.Atom != nil {
+		return []ConfigPoint{}, nil
+	}
+
+	// expression is a list
+	list := e.List
+	if list.IsTrivialExpression() {
+		return []ConfigPoint{}, nil
+	}
+
+	functionName, err := list.GetFunctionName()
+	if err != nil {
+		return nil, fmt.Errorf("getting function name: %w", err)
+	}
+
+	if *functionName == "config" {
+		if len(*list) != 2 {
+			return nil, errors.New("invalid config function call")
+		}
+
+		configNameExpr := (*list)[1]
+		if configNameExpr.Atom == nil {
+			return nil, errors.New("invalid config function call")
+		}
+
+		configName, err := configNameExpr.Atom.EvaluateIdentifier()
+		if err != nil {
+			return nil, fmt.Errorf("getting config name: %w", err)
+		}
+
+		moduleConfigName := fmt.Sprintf("%s/%s", moduleName, *configName)
+		if _, ok := state[moduleConfigName]; ok {
+			return []ConfigPoint{}, nil
+		}
+
+		config := config.FindConfig(moduleConfigName)
+		if config == nil {
+			return nil, errors.New("invalid config name")
+		}
+
+		var description *string
+		if config.Description != nil {
+			description, err = config.Description.EvaluateString(state, moduleName)
+			if err != nil {
+				return nil, fmt.Errorf("evaluating description: %w", err)
+			}
+		}
+
+		return []ConfigPoint{
+			{
+				Name:        moduleConfigName,
+				Description: description,
+			},
+		}, nil
+	}
+
+	return []ConfigPoint{}, nil
+}
+
+func (e *Expression) EvaluateString(state map[string]any, moduleName string) (*string, error) {
+	util.AssertEnum("invalid expression", e.Atom, e.List)
+
+	if e.Atom != nil {
+		return e.Atom.EvaluateString()
+	}
+
+	list := e.List
+	if list.IsTrivialExpression() {
+		return (*list)[0].EvaluateString(state, moduleName)
+	}
+
+	functionName, err := list.GetFunctionName()
+	if err != nil {
+		return nil, fmt.Errorf("getting function name: %w", err)
+	}
+
+	if *functionName == "config" {
+		if len(*list) != 2 {
+			return nil, errors.New("invalid config function call")
+		}
+
+		configNameExpr := (*list)[1]
+		if configNameExpr.Atom == nil {
+			return nil, errors.New("invalid config function call")
+		}
+
+		configName, err := configNameExpr.Atom.EvaluateIdentifier()
+		if err != nil {
+			return nil, fmt.Errorf("getting config name: %w", err)
+		}
+
+		moduleConfigName := fmt.Sprintf("%s/%s", moduleName, *configName)
+		if configValue, ok := state[moduleConfigName]; ok {
+			var value string
+			if value, ok = configValue.(string); !ok {
+				panic("config string is not a string")
+			}
+
+			return &value, nil
+		}
+	}
+
+	return nil, errors.New("invalid expression")
+}
+
+func (e *Expression) asIdentifier() *string {
 	if e.Atom == nil {
 		return nil
 	}
@@ -74,7 +225,7 @@ func (e *Expression) AsIdentifier() *string {
 	return e.Atom.Identifier
 }
 
-func (e *Expression) AsString() *string {
+func (e *Expression) asString() *string {
 	if e.Atom == nil {
 		return nil
 	}
@@ -86,4 +237,24 @@ type Atom struct {
 	Identifier *string `json:"identifier,omitempty"`
 	String     *string `json:"string,omitempty"`
 	Number     *string `json:"number,omitempty"`
+}
+
+func (a *Atom) EvaluateIdentifier() (*string, error) {
+	util.AssertEnum("invalid atom", a.Identifier, a.String, a.Number)
+
+	if a.Identifier == nil {
+		return nil, errors.New("atom not identifier")
+	}
+
+	return a.Identifier, nil
+}
+
+func (a *Atom) EvaluateString() (*string, error) {
+	util.AssertEnum("invalid atom", a.Identifier, a.String, a.Number)
+
+	if a.String == nil {
+		return nil, errors.New("atom not string")
+	}
+
+	return a.String, nil
 }

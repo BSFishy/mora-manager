@@ -44,8 +44,11 @@ func (a *App) createDeployment(w http.ResponseWriter, req *http.Request) error {
 		return fmt.Errorf("sorting services: %w", err)
 	}
 
+	configs := config.FlattenConfigs()
+
 	deployment, err := environment.NewDeployment(ctx, a.db, Config{
 		Services: services,
+		Configs:  configs,
 	})
 	if err != nil {
 		return fmt.Errorf("creating deployment: %w", err)

@@ -58,23 +58,33 @@ func (a *App) deploy(d *model.Deployment) {
 			return fmt.Errorf("decoding config: %w", err)
 		}
 
+		var state map[string]any
+		if d.State != nil {
+			if err = json.Unmarshal(*d.State, &state); err != nil {
+				return fmt.Errorf("decoding state: %w", err)
+			}
+		}
+
 		namespace := fmt.Sprintf("%s-%s", user.Username, environment.Slug)
 		if err = ensureNamespace(ctx, a.clientset, namespace); err != nil {
 			return fmt.Errorf("ensuring namespace: %w", err)
 		}
 
 		for _, service := range config.Services {
-			configPoints, err := service.FindConfigPoints()
+			configPoints, err := service.FindConfigPoints(config, state)
 			if err != nil {
 				return fmt.Errorf("finding config points: %w", err)
 			}
 
 			if len(configPoints) > 0 {
-				// TODO: update something about configuring?
+				if err = d.UpdateStateAndStatus(ctx, tx, model.Waiting, state); err != nil {
+					return fmt.Errorf("updating state: %w", err)
+				}
+
 				return nil
 			}
 
-			def, err := service.Evaluate()
+			def, err := service.Evaluate(state)
 			if err != nil {
 				return fmt.Errorf("evaluating service: %w", err)
 			}
@@ -91,7 +101,7 @@ func (a *App) deploy(d *model.Deployment) {
 			}
 		}
 
-		if err = d.UpdateStatus(ctx, tx, model.Success); err != nil {
+		if err = d.UpdateStateAndStatus(ctx, tx, model.Success, state); err != nil {
 			return fmt.Errorf("updating status to success: %w", err)
 		}
 

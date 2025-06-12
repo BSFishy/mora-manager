@@ -13,6 +13,7 @@ type DeploymentStatus string
 const (
 	NotStarted DeploymentStatus = "not_started"
 	InProgress DeploymentStatus = "in_progress"
+	Waiting    DeploymentStatus = "waiting"
 	Cancelled  DeploymentStatus = "cancelled"
 	Errored    DeploymentStatus = "errored"
 	Success    DeploymentStatus = "success"
@@ -55,7 +56,7 @@ func (e *Environment) NewDeployment(ctx context.Context, d *DB, config any) (*De
 // TODO: will we ever want to like undo a cancelled deployment or something like
 // that?
 func (e *Environment) CancelInProgressDeployments(ctx context.Context, d *DB) error {
-	_, err := d.db.ExecContext(ctx, "UPDATE deployments SET status = $1, updated_at = now() WHERE environment_id = $2 AND status IN ($3, $4)", Cancelled, e.Id, NotStarted, InProgress)
+	_, err := d.db.ExecContext(ctx, "UPDATE deployments SET status = $1, updated_at = now() WHERE environment_id = $2 AND status IN ($3, $4, $5)", Cancelled, e.Id, NotStarted, InProgress, Waiting)
 	return err
 }
 
@@ -85,4 +86,32 @@ func (d *Deployment) Refresh(ctx context.Context, tx *sql.Tx) error {
 func (d *Deployment) UpdateStatus(ctx context.Context, tx *sql.Tx, status DeploymentStatus) error {
 	_, err := tx.ExecContext(ctx, "UPDATE deployments SET status = $1, updated_at = now() WHERE id = $2", status, d.Id)
 	return err
+}
+
+func (d *Deployment) UpdateState(ctx context.Context, tx *sql.Tx, state map[string]any) error {
+	stateBlob, err := json.Marshal(state)
+	if err != nil {
+		return fmt.Errorf("encoding state: %w", err)
+	}
+
+	_, err = tx.ExecContext(ctx, "UPDATE deployments SET state = $1, updated_at = now() WHERE id = $2", stateBlob, d.Id)
+	if err != nil {
+		return fmt.Errorf("updating database: %w", err)
+	}
+
+	return nil
+}
+
+func (d *Deployment) UpdateStateAndStatus(ctx context.Context, tx *sql.Tx, status DeploymentStatus, state map[string]any) error {
+	stateBlob, err := json.Marshal(state)
+	if err != nil {
+		return fmt.Errorf("encoding state: %w", err)
+	}
+
+	_, err = tx.ExecContext(ctx, "UPDATE deployments SET status = $1, state = $2, updated_at = now() WHERE id = $3", status, stateBlob, d.Id)
+	if err != nil {
+		return fmt.Errorf("updating database: %w", err)
+	}
+
+	return nil
 }

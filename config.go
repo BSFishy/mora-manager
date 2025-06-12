@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
@@ -15,6 +14,17 @@ import (
 
 type ApiConfig struct {
 	Modules []Module `json:"modules"`
+}
+
+func (c *ApiConfig) FlattenConfigs() []ModuleConfig {
+	configs := []ModuleConfig{}
+	for _, module := range c.Modules {
+		for _, config := range module.Configs {
+			configs = append(configs, config.WithModuleName(module.Name))
+		}
+	}
+
+	return configs
 }
 
 func (c *ApiConfig) TopologicalSort() ([]ServiceConfig, error) {
@@ -72,10 +82,24 @@ func (c *ApiConfig) TopologicalSort() ([]ServiceConfig, error) {
 	return result, nil
 }
 
-type ConfigPoint struct{}
+type ConfigPoint struct {
+	Name        string
+	Description *string
+}
 
 type Config struct {
 	Services []ServiceConfig
+	Configs  []ModuleConfig
+}
+
+func (c *Config) FindConfig(name string) *ModuleConfig {
+	for _, config := range c.Configs {
+		if config.Name == name {
+			return &config
+		}
+	}
+
+	return nil
 }
 
 type ServiceConfig struct {
@@ -84,15 +108,22 @@ type ServiceConfig struct {
 	Image       Expression
 }
 
-func (s *ServiceConfig) FindConfigPoints() ([]ConfigPoint, error) {
-	return []ConfigPoint{}, nil
+func (s *ServiceConfig) FindConfigPoints(config Config, state map[string]any) ([]ConfigPoint, error) {
+	configPoints := []ConfigPoint{}
+	image, err := s.Image.GetConfigPoints(config, state, s.ModuleName)
+	if err != nil {
+		return nil, fmt.Errorf("getting image config points: %w", err)
+	}
+
+	configPoints = append(configPoints, image...)
+	return configPoints, nil
 }
 
-func (s *ServiceConfig) Evaluate() (*ServiceDefinition, error) {
+func (s *ServiceConfig) Evaluate(state map[string]any) (*ServiceDefinition, error) {
 	name := fmt.Sprintf("%s_%s", s.ModuleName, s.ServiceName)
-	image := s.Image.AsString()
-	if image == nil {
-		return nil, errors.New("image is not a string")
+	image, err := s.Image.EvaluateString(state, s.ModuleName)
+	if err != nil {
+		return nil, fmt.Errorf("evaluating image: %w", err)
 	}
 
 	return &ServiceDefinition{
