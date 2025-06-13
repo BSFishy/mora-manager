@@ -108,7 +108,7 @@ type ServiceConfig struct {
 	Image       Expression
 }
 
-func (s *ServiceConfig) FindConfigPoints(config Config, state map[string]any) ([]ConfigPoint, error) {
+func (s *ServiceConfig) FindConfigPoints(config Config, state State) ([]ConfigPoint, error) {
 	configPoints := []ConfigPoint{}
 	image, err := s.Image.GetConfigPoints(config, state, s.ModuleName)
 	if err != nil {
@@ -119,7 +119,7 @@ func (s *ServiceConfig) FindConfigPoints(config Config, state map[string]any) ([
 	return configPoints, nil
 }
 
-func (s *ServiceConfig) Evaluate(state map[string]any) (*ServiceDefinition, error) {
+func (s *ServiceConfig) Evaluate(state State) (*ServiceDefinition, error) {
 	name := fmt.Sprintf("%s_%s", s.ModuleName, s.ServiceName)
 	image, err := s.Image.EvaluateString(state, s.ModuleName)
 	if err != nil {

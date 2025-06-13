@@ -109,7 +109,7 @@ type Expression struct {
 	List *ListExpression `json:"list,omitempty"`
 }
 
-func (e *Expression) GetConfigPoints(config Config, state map[string]any, moduleName string) ([]ConfigPoint, error) {
+func (e *Expression) GetConfigPoints(config Config, state State, moduleName string) ([]ConfigPoint, error) {
 	util.AssertEnum("invalid expression", e.Atom, e.List)
 
 	if e.Atom != nil {
@@ -143,7 +143,7 @@ func (e *Expression) GetConfigPoints(config Config, state map[string]any, module
 		}
 
 		moduleConfigName := fmt.Sprintf("%s/%s", moduleName, *configName)
-		if _, ok := state[moduleConfigName]; ok {
+		if cfg := state.FindConfig(moduleName, *configName); cfg != nil {
 			return []ConfigPoint{}, nil
 		}
 
@@ -171,7 +171,7 @@ func (e *Expression) GetConfigPoints(config Config, state map[string]any, module
 	return []ConfigPoint{}, nil
 }
 
-func (e *Expression) EvaluateString(state map[string]any, moduleName string) (*string, error) {
+func (e *Expression) EvaluateString(state State, moduleName string) (*string, error) {
 	util.AssertEnum("invalid expression", e.Atom, e.List)
 
 	if e.Atom != nil {
@@ -203,10 +203,13 @@ func (e *Expression) EvaluateString(state map[string]any, moduleName string) (*s
 			return nil, fmt.Errorf("getting config name: %w", err)
 		}
 
-		moduleConfigName := fmt.Sprintf("%s/%s", moduleName, *configName)
-		if configValue, ok := state[moduleConfigName]; ok {
-			var value string
-			if value, ok = configValue.(string); !ok {
+		if configValue := state.FindConfig(moduleName, *configName); configValue != nil {
+			var (
+				value string
+				ok    bool
+			)
+
+			if value, ok = configValue.Value.(string); !ok {
 				panic("config string is not a string")
 			}
 

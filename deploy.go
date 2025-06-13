@@ -58,7 +58,7 @@ func (a *App) deploy(d *model.Deployment) {
 			return fmt.Errorf("decoding config: %w", err)
 		}
 
-		var state map[string]any
+		var state State
 		if d.State != nil {
 			if err = json.Unmarshal(*d.State, &state); err != nil {
 				return fmt.Errorf("decoding state: %w", err)
@@ -70,7 +70,8 @@ func (a *App) deploy(d *model.Deployment) {
 			return fmt.Errorf("ensuring namespace: %w", err)
 		}
 
-		for _, service := range config.Services {
+		services := state.FilterDeployedServices(config.Services)
+		for _, service := range services {
 			configPoints, err := service.FindConfigPoints(config, state)
 			if err != nil {
 				return fmt.Errorf("finding config points: %w", err)
@@ -81,6 +82,7 @@ func (a *App) deploy(d *model.Deployment) {
 					return fmt.Errorf("updating state: %w", err)
 				}
 
+				logger.Info("waiting for dynamic config")
 				return nil
 			}
 
@@ -99,6 +101,8 @@ func (a *App) deploy(d *model.Deployment) {
 					return fmt.Errorf("deploying service: %w", err)
 				}
 			}
+
+			state.AddDeployedService(service.ModuleName, service.ServiceName)
 		}
 
 		if err = d.UpdateStateAndStatus(ctx, tx, model.Success, state); err != nil {
