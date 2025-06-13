@@ -59,6 +59,10 @@ css Px(size float64) {
 	padding-inline: { templ.SafeCSSProperty(fmt.Sprintf("%frem", size * spacing)) };
 }
 
+css Pxp(size string) {
+	padding-inline: { size };
+}
+
 css Py(size float64) {
 	padding-block: { templ.SafeCSSProperty(fmt.Sprintf("%frem", size * spacing)) };
 }

@@ -18,7 +18,7 @@ func (a *App) deploy(d *model.Deployment) {
 	ctx := context.Background()
 	logger := util.LogFromCtx(ctx)
 
-	logger = logger.With("deployment", d.Id)
+	logger = logger.With("deployment", d.Id, "environment", d.EnvironmentId)
 	ctx = util.WithLogger(ctx, logger)
 
 	// TODO: i might want to have some sort of mechanism to catch on errors and
@@ -72,6 +72,8 @@ func (a *App) deploy(d *model.Deployment) {
 
 		services := state.FilterDeployedServices(config.Services)
 		for _, service := range services {
+			logger = logger.With("module", service.ModuleName, "service", service.ServiceName)
+
 			configPoints, err := service.FindConfigPoints(config, state)
 			if err != nil {
 				return fmt.Errorf("finding config points: %w", err)
@@ -103,6 +105,7 @@ func (a *App) deploy(d *model.Deployment) {
 			}
 
 			state.AddDeployedService(service.ModuleName, service.ServiceName)
+			logger.Info("deployed service")
 		}
 
 		if err = d.UpdateStateAndStatus(ctx, tx, model.Success, state); err != nil {

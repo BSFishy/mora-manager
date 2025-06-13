@@ -83,6 +83,7 @@ func (c *ApiConfig) TopologicalSort() ([]ServiceConfig, error) {
 }
 
 type ConfigPoint struct {
+	Identifier  string
 	Name        string
 	Description *string
 }
@@ -94,7 +95,7 @@ type Config struct {
 
 func (c *Config) FindConfig(name string) *ModuleConfig {
 	for _, config := range c.Configs {
-		if config.Name == name {
+		if config.Identifier == name {
 			return &config
 		}
 	}

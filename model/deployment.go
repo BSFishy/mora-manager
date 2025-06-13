@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -58,6 +59,55 @@ func (e *Environment) NewDeployment(ctx context.Context, d *DB, config any) (*De
 func (e *Environment) CancelInProgressDeployments(ctx context.Context, d *DB) error {
 	_, err := d.db.ExecContext(ctx, "UPDATE deployments SET status = $1, updated_at = now() WHERE environment_id = $2 AND status IN ($3, $4, $5)", Cancelled, e.Id, NotStarted, InProgress, Waiting)
 	return err
+}
+
+func (d *DB) GetDeployments(ctx context.Context, environments []Environment) ([]Deployment, error) {
+	if len(environments) < 1 {
+		return []Deployment{}, nil
+	}
+
+	environmentIds := make([]string, len(environments))
+	for i, env := range environments {
+		environmentIds[i] = fmt.Sprintf("'%s'", env.Id)
+	}
+
+	query := fmt.Sprintf("SELECT id, environment_id, status, created_at, updated_at FROM deployments WHERE environment_id IN (%s) ORDER BY created_at DESC", strings.Join(environmentIds, ", "))
+	rows, err := d.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("selecting rows: %w", err)
+	}
+
+	defer rows.Close()
+
+	result := []Deployment{}
+	for rows.Next() {
+		deployment := Deployment{}
+		err := rows.Scan(&deployment.Id, &deployment.EnvironmentId, &deployment.Status, &deployment.CreatedAt, &deployment.UpdatedAt)
+		if err != nil {
+			return nil, fmt.Errorf("scanning row: %w", err)
+		}
+
+		result = append(result, deployment)
+	}
+
+	return result, nil
+}
+
+func (d *DB) GetDeployment(ctx context.Context, id string) (*Deployment, error) {
+	deployment := Deployment{
+		Id: id,
+	}
+
+	err := d.db.QueryRowContext(ctx, "SELECT environment_id, status, config, state, created_at, updated_at FROM deployments WHERE id = $1", id).Scan(&deployment.EnvironmentId, &deployment.Status, &deployment.Config, &deployment.State, &deployment.CreatedAt, &deployment.UpdatedAt)
+	if err == nil {
+		return &deployment, nil
+	}
+
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+
+	return nil, err
 }
 
 func (d *Deployment) Lock(ctx context.Context, db *DB) (*sql.Tx, error) {

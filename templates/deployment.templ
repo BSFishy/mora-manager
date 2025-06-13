@@ -1,0 +1,22 @@
+package templates
+
+type ConfigPoint struct {
+	Identifier  string
+	Name        string
+	Description *string
+}
+
+templ Deployment(configPoints []ConfigPoint) {
+	@layout("Deployment") {
+		Hello world
+		for _, point := range configPoints {
+			<div>
+				<p>{ point.Identifier }</p>
+				<p>{ point.Name }</p>
+				if point.Description != nil {
+					<p>{ *point.Description }</p>
+				}
+			</div>
+		}
+	}
+}

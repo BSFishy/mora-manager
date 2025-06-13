@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"embed"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -121,10 +122,79 @@ func main() {
 			return fmt.Errorf("getting environments: %w", err)
 		}
 
+		deployments, err := app.db.GetDeployments(ctx, environments)
+		if err != nil {
+			return fmt.Errorf("getting deployments: %w", err)
+		}
+
 		return templates.Dashboard(templates.DashboardProps{
 			User:         user,
 			Environments: environments,
+			Deployments:  deployments,
 		}).Render(ctx, w)
+	}))
+
+	r.Use(app.userProtected).HandleGet("/deployment/:id", router.ErrorHandlerFunc(func(w http.ResponseWriter, r *http.Request) error {
+		ctx := r.Context()
+		user, _ := GetUser(ctx)
+
+		params := router.Params(r)
+		id := params["id"]
+
+		deployment, err := app.db.GetDeployment(ctx, id)
+		if err != nil {
+			return fmt.Errorf("getting deployment: %w", err)
+		}
+
+		if deployment == nil {
+			http.NotFound(w, r)
+			return nil
+		}
+
+		environment, err := app.db.GetEnvironment(ctx, deployment.EnvironmentId)
+		if err != nil {
+			return fmt.Errorf("getting environment: %w", err)
+		}
+
+		if environment.UserId != user.Id {
+			http.NotFound(w, r)
+			return nil
+		}
+
+		var configPoints []templates.ConfigPoint
+		if deployment.Status == model.Waiting {
+			var config Config
+			if err = json.Unmarshal(deployment.Config, &config); err != nil {
+				return fmt.Errorf("decoding config: %w", err)
+			}
+
+			var state State
+			if deployment.State != nil {
+				if err = json.Unmarshal(*deployment.State, &state); err != nil {
+					return fmt.Errorf("decoding state: %w", err)
+				}
+			}
+
+			services := state.FilterDeployedServices(config.Services)
+			if len(services) > 0 {
+				service := services[0]
+				points, err := service.FindConfigPoints(config, state)
+				if err != nil {
+					return fmt.Errorf("finding config points: %w", err)
+				}
+
+				configPoints = make([]templates.ConfigPoint, len(points))
+				for i, point := range points {
+					configPoints[i] = templates.ConfigPoint{
+						Identifier:  point.Identifier,
+						Name:        point.Name,
+						Description: point.Description,
+					}
+				}
+			}
+		}
+
+		return templates.Deployment(configPoints).Render(ctx, w)
 	}))
 
 	r.Use(app.userProtected).HandleGet("/environment", templ.Handler(templates.CreateEnvironment()))

@@ -18,7 +18,7 @@ templ Tokens(props TokensProps) {
 			@submit(templ.Attributes{"hx-post": "/htmx/token", "hx-target": "#tokens"}) {
 				Create token
 			}
-			<div id="tokens">
+			<div id="tokens" hx-history="false">
 				@TokenList(props.Tokens)
 			</div>
 		</div>

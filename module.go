@@ -14,13 +14,15 @@ type Module struct {
 }
 
 type ModuleConfig struct {
-	Name        string      `json:"name"`
+	Identifier  string      `json:"identifier"`
+	Name        Expression  `json:"name"`
 	Description *Expression `json:"description,omitempty"`
 }
 
 func (m ModuleConfig) WithModuleName(module string) ModuleConfig {
 	return ModuleConfig{
-		Name:        fmt.Sprintf("%s/%s", module, m.Name),
+		Identifier:  fmt.Sprintf("%s/%s", module, m.Identifier),
+		Name:        m.Name,
 		Description: m.Description,
 	}
 }
@@ -152,6 +154,12 @@ func (e *Expression) GetConfigPoints(config Config, state State, moduleName stri
 			return nil, errors.New("invalid config name")
 		}
 
+		name, err := config.Name.EvaluateString(state, moduleName)
+		if err != nil {
+			// realistically, this is a misconfiguration, but ill leave it like this
+			return nil, fmt.Errorf("evaluating name: %w", err)
+		}
+
 		var description *string
 		if config.Description != nil {
 			description, err = config.Description.EvaluateString(state, moduleName)
@@ -162,7 +170,8 @@ func (e *Expression) GetConfigPoints(config Config, state State, moduleName stri
 
 		return []ConfigPoint{
 			{
-				Name:        moduleConfigName,
+				Identifier:  moduleConfigName,
+				Name:        *name,
 				Description: description,
 			},
 		}, nil

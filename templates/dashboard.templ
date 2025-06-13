@@ -1,32 +1,42 @@
 package templates
 
-import "github.com/BSFishy/mora-manager/templates/styles"
-import "github.com/BSFishy/mora-manager/model"
+import (
+	"fmt"
+	"github.com/BSFishy/mora-manager/model"
+	"github.com/BSFishy/mora-manager/templates/styles"
+	"time"
+)
 
 type DashboardProps struct {
 	User         *model.User
 	Environments []model.Environment
+	Deployments  []model.Deployment
 }
 
 templ Dashboard(props DashboardProps) {
 	@layout("Dashboard") {
 		<div
-			class={ styles.W("100vw"), styles.Minh("100vh"), styles.Flex(), styles.FlexRow(), styles.FlexWrap(), styles.Justify("center"), styles.Gap(3), styles.P(4) }
+			class={ styles.W("100vw"), styles.Minh("100vh"), styles.Flex(), styles.FlexRow(), styles.FlexWrap(), styles.Justify("center"), styles.Gap(3), styles.P(4), styles.Pxp("10%") }
 		>
-			<div class={ styles.W("600px") }>
+			<div class={ styles.FlexBasis("600px"), styles.FlexGrow("6") }>
 				@submit(templ.Attributes{"type": "link", "href": "/environment"}) {
 					Create environment
 				}
 				if len(props.Environments) > 0 {
-					<div id="environments">
+					<div id="environments" hx-history="false">
 						@DashboardEnvironments(props.Environments)
+					</div>
+				}
+				if len(props.Deployments) > 0 {
+					<div id="deployments" hx-history="false">
+						@DashboardDeployments(props.Environments, props.Deployments)
 					</div>
 				}
 			</div>
 			<div
-				class={ styles.W("400px"), styles.H("min-content"), styles.Border(), styles.BorderColor(styles.Emerald[700]), styles.Rounded(styles.Radius["md"]), styles.BorderWidth("3px"), styles.P(3) }
+				class={ styles.FlexBasis("400px"), styles.FlexGrow("4"), styles.H("min-content"), styles.Border(), styles.BorderColor(styles.Emerald[700]), styles.Rounded(styles.Radius["md"]), styles.BorderWidth("3px"), styles.P(3) }
 			>
-				<span>{ props.User.Username }</span>
+				<span hx-disable>{ props.User.Username }</span>
 				<br/>
 				@submit(templ.Attributes{"type": "link", "href": "/tokens"}) {
 					Tokens
@@ -61,6 +71,61 @@ templ DashboardEnvironments(environments []model.Environment) {
 							}
 						</form>
 					</td>
+				</tr>
+			}
+		</tbody>
+	</table>
+}
+
+func environmentName(envs []model.Environment, id string) string {
+	for _, env := range envs {
+		if env.Id == id {
+			return env.Name
+		}
+	}
+	panic("uh oh")
+}
+
+templ DashboardDeployments(envs []model.Environment, deployments []model.Deployment) {
+	<table>
+		<thead>
+			<tr>
+				<th class={ styles.P(2) }>Date</th>
+				<th class={ styles.P(2) }>ID</th>
+				<th class={ styles.P(2) }>Environment</th>
+				<th class={ styles.P(2) }>Status</th>
+			</tr>
+		</thead>
+		<tbody>
+			<script>
+				document.addEventListener("DOMContentLoaded", () => {
+					document.querySelectorAll(".timed").forEach(el => {
+						const iso = el.dataset.dt;
+						if (!iso) return;
+
+						const date = new Date(iso);
+						el.textContent = date.toLocaleString(undefined, {
+							dateStyle: "medium",
+							timeStyle: "short"
+						});
+					});
+				});
+			</script>
+			for _, deployment := range deployments {
+				<tr class={ styles.BorderWidthTop("1px") }>
+					<td
+						class={ styles.P(2), "timed" }
+						data-dt={ deployment.CreatedAt.Format(time.RFC3339) }
+					>{ deployment.CreatedAt.Format(time.Stamp) }</td>
+					<td class={ styles.P(2) }>
+						@link(templ.Attributes{"href": fmt.Sprintf("/deployment/%s", deployment.Id)}) {
+							{ deployment.Id }
+						}
+					</td>
+					<td class={ styles.P(2) } hx-disable>
+						{ environmentName(envs, deployment.EnvironmentId) }
+					</td>
+					<td class={ styles.P(2) }>{ deployment.Status }</td>
 				</tr>
 			}
 		</tbody>
