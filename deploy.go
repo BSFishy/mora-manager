@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -21,15 +22,11 @@ func (a *App) deploy(d *model.Deployment) {
 	logger = logger.With("deployment", d.Id, "environment", d.EnvironmentId)
 	ctx = util.WithLogger(ctx, logger)
 
-	// TODO: i might want to have some sort of mechanism to catch on errors and
-	// mark the deployment as failed
-	util.Protect(ctx, func() error {
-		tx, err := d.Lock(ctx, a.db)
+	err := a.db.Transact(ctx, func(tx *sql.Tx) error {
+		err := d.Lock(ctx, tx)
 		if err != nil {
 			return err
 		}
-
-		defer d.Unlock(tx)
 
 		environment, err := a.db.GetEnvironment(ctx, d.EnvironmentId)
 		if err != nil {
@@ -115,6 +112,13 @@ func (a *App) deploy(d *model.Deployment) {
 
 		return nil
 	})
+	if err != nil {
+		logger.Error("deployment failed", "err", err)
+
+		if err := d.UpdateStatusDb(ctx, a.db, model.Errored); err != nil {
+			logger.Error("updating status to errored", "err", err)
+		}
+	}
 }
 
 func ensureNamespace(ctx context.Context, clientset *kubernetes.Clientset, namespace string) error {

@@ -110,22 +110,13 @@ func (d *DB) GetDeployment(ctx context.Context, id string) (*Deployment, error) 
 	return nil, err
 }
 
-func (d *Deployment) Lock(ctx context.Context, db *DB) (*sql.Tx, error) {
-	tx, err := db.db.BeginTx(ctx, nil)
+func (d *Deployment) Lock(ctx context.Context, tx *sql.Tx) error {
+	_, err := tx.ExecContext(ctx, "SELECT pg_advisory_xact_lock($1)", hashStringToInt64(fmt.Sprintf("%s/%s", d.EnvironmentId, d.Id)))
 	if err != nil {
-		return nil, fmt.Errorf("beginning transaction: %w", err)
+		return fmt.Errorf("obtaining lock: %w", err)
 	}
 
-	_, err = tx.ExecContext(ctx, "SELECT pg_advisory_xact_lock($1)", hashStringToInt64(fmt.Sprintf("%s/%s", d.EnvironmentId, d.Id)))
-	if err != nil {
-		return nil, fmt.Errorf("obtaining lock: %w", err)
-	}
-
-	return tx, nil
-}
-
-func (d *Deployment) Unlock(tx *sql.Tx) error {
-	return tx.Commit()
+	return nil
 }
 
 func (d *Deployment) Refresh(ctx context.Context, tx *sql.Tx) error {
@@ -135,6 +126,11 @@ func (d *Deployment) Refresh(ctx context.Context, tx *sql.Tx) error {
 
 func (d *Deployment) UpdateStatus(ctx context.Context, tx *sql.Tx, status DeploymentStatus) error {
 	_, err := tx.ExecContext(ctx, "UPDATE deployments SET status = $1, updated_at = now() WHERE id = $2", status, d.Id)
+	return err
+}
+
+func (d *Deployment) UpdateStatusDb(ctx context.Context, db *DB, status DeploymentStatus) error {
+	_, err := db.db.ExecContext(ctx, "UPDATE deployments SET status = $1, updated_at = now() WHERE id = $2", status, d.Id)
 	return err
 }
 

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -99,53 +100,58 @@ func (a *App) updateDeploymentConfigHtmxRoute(w http.ResponseWriter, r *http.Req
 		return nil
 	}
 
-	tx, err := d.Lock(ctx, a.db)
-	if err != nil {
-		return fmt.Errorf("taking deployment lock: %w", err)
-	}
-
-	defer d.Unlock(tx)
-
-	moduleNames := r.Form["module_name"]
-	identifiers := r.Form["identifier"]
-	values := r.Form["value"]
-
-	if len(moduleNames) != len(identifiers) || len(moduleNames) != len(values) {
-		w.WriteHeader(http.StatusBadRequest)
-		return nil
-	}
-
-	var config Config
-	if err := json.Unmarshal(d.Config, &config); err != nil {
-		return fmt.Errorf("decoding config: %w", err)
-	}
-
-	var state State
-	if d.State != nil {
-		if err := json.Unmarshal(*d.State, &state); err != nil {
-			return fmt.Errorf("decoding state: %w", err)
+	err = a.db.Transact(ctx, func(tx *sql.Tx) error {
+		err := d.Lock(ctx, tx)
+		if err != nil {
+			return fmt.Errorf("taking deployment lock: %w", err)
 		}
-	}
 
-	for i := range moduleNames {
-		moduleName := moduleNames[i]
-		identifier := identifiers[i]
-		value := values[i]
+		moduleNames := r.Form["module_name"]
+		identifiers := r.Form["identifier"]
+		values := r.Form["value"]
 
-		if cfg := config.FindConfig(moduleName, identifier); cfg == nil {
+		if len(moduleNames) != len(identifiers) || len(moduleNames) != len(values) {
 			w.WriteHeader(http.StatusBadRequest)
 			return nil
 		}
 
-		state.Configs = append(state.Configs, StateConfig{
-			ModuleName: moduleName,
-			Name:       identifier,
-			Value:      value,
-		})
-	}
+		var config Config
+		if err := json.Unmarshal(d.Config, &config); err != nil {
+			return fmt.Errorf("decoding config: %w", err)
+		}
 
-	if err := d.UpdateState(ctx, tx, state); err != nil {
-		return fmt.Errorf("updating state: %w", err)
+		var state State
+		if d.State != nil {
+			if err := json.Unmarshal(*d.State, &state); err != nil {
+				return fmt.Errorf("decoding state: %w", err)
+			}
+		}
+
+		for i := range moduleNames {
+			moduleName := moduleNames[i]
+			identifier := identifiers[i]
+			value := values[i]
+
+			if cfg := config.FindConfig(moduleName, identifier); cfg == nil {
+				w.WriteHeader(http.StatusBadRequest)
+				return nil
+			}
+
+			state.Configs = append(state.Configs, StateConfig{
+				ModuleName: moduleName,
+				Name:       identifier,
+				Value:      value,
+			})
+		}
+
+		if err := d.UpdateState(ctx, tx, state); err != nil {
+			return fmt.Errorf("updating state: %w", err)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return err
 	}
 
 	go a.deploy(d)
