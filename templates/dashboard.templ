@@ -19,15 +19,18 @@ templ Dashboard(props DashboardProps) {
 			class={ styles.W("100vw"), styles.Minh("100vh"), styles.Flex(), styles.FlexRow(), styles.FlexWrap(), styles.Justify("center"), styles.Gap(3), styles.P(4), styles.Pxp("10%") }
 		>
 			<div class={ styles.FlexBasis("600px"), styles.FlexGrow("6") }>
+				<h3 class={ styles.TextSize("xl"), styles.My(2) }>Environments</h3>
 				@submit(templ.Attributes{"type": "link", "href": "/environment"}) {
 					Create environment
 				}
 				if len(props.Environments) > 0 {
-					<div id="environments" hx-history="false">
+					<div id="environments" hx-history="false" class={ styles.My(2) }>
 						@DashboardEnvironments(props.Environments)
 					</div>
 				}
 				if len(props.Deployments) > 0 {
+					<hr/>
+					<h3 class={ styles.TextSize("xl"), styles.My(3) }>Deployments</h3>
 					<div
 						id="deployments"
 						hx-history="false"
@@ -103,17 +106,21 @@ templ DashboardDeployments(envs []model.Environment, deployments []model.Deploym
 		</thead>
 		<tbody>
 			<script>
-				document.addEventListener("DOMContentLoaded", () => {
-					document.querySelectorAll(".timed").forEach(el => {
-						const iso = el.dataset.dt;
-						if (!iso) return;
+				document.querySelectorAll(".timed").forEach(el => {
+					const iso = el.dataset.dt;
+					if (!iso) return;
 
-						const date = new Date(iso);
-						el.textContent = date.toLocaleString(undefined, {
-							dateStyle: "medium",
-							timeStyle: "short"
-						});
-					});
+					const date = new Date(iso);
+
+					const month = date.toLocaleString(undefined, { month: "short" });
+					const day = date.getDate(); // no zero-padding
+					let hours = date.getHours();
+					const minutes = date.getMinutes().toString().padStart(2, "0");
+					const ampm = hours >= 12 ? "PM" : "AM";
+					hours = hours % 12;
+					if (hours === 0) hours = 12;
+
+					el.textContent = `${month} ${day} ${hours}:${minutes}${ampm}`;
 				});
 			</script>
 			for _, deployment := range deployments {
@@ -121,7 +128,7 @@ templ DashboardDeployments(envs []model.Environment, deployments []model.Deploym
 					<td
 						class={ styles.P(2), "timed" }
 						data-dt={ deployment.CreatedAt.Format(time.RFC3339) }
-					>{ deployment.CreatedAt.Format(time.Stamp) }</td>
+					>{ deployment.CreatedAt.Format("Jan _2 3:04PM") }</td>
 					<td class={ styles.P(2) }>
 						@link(templ.Attributes{"href": fmt.Sprintf("/deployment/%s", deployment.Id)}) {
 							{ deployment.Id }
