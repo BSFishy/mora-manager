@@ -95,7 +95,7 @@ func (a *App) deploy(d *model.Deployment) {
 				return nil
 			}
 
-			def, err := service.Evaluate(moduleFnCtx)
+			def, err := service.Evaluate(moduleFnCtx, user.Username, environment.Slug)
 			if err != nil {
 				return fmt.Errorf("evaluating service: %w", err)
 			}
