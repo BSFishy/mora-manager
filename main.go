@@ -22,6 +22,7 @@ type App struct {
 	clientset *kubernetes.Clientset
 	db        *model.DB
 	secret    string
+	registry  *FunctionRegistry
 }
 
 func NewApp() App {
@@ -57,10 +58,14 @@ func NewApp() App {
 		slog.Info("setup secret", "secret", secret)
 	}
 
+	registry := NewFunctionRegistry()
+	RegisterConfigFunction(registry)
+
 	return App{
 		clientset: clientset,
 		db:        db,
 		secret:    secret,
+		registry:  registry,
 	}
 }
 
@@ -195,10 +200,19 @@ func main() {
 				}
 			}
 
+			fnCtx := FunctionContext{
+				Registry: app.registry,
+				Config:   &config,
+				State:    &state,
+			}
+
 			services := state.FilterDeployedServices(config.Services)
 			if len(services) > 0 {
 				service := services[0]
-				points, err := service.FindConfigPoints(config, state)
+				moduleFnCtx := fnCtx
+				moduleFnCtx.ModuleName = service.ModuleName
+
+				points, err := service.FindConfigPoints(moduleFnCtx)
 				if err != nil {
 					return fmt.Errorf("finding config points: %w", err)
 				}

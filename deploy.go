@@ -62,6 +62,12 @@ func (a *App) deploy(d *model.Deployment) {
 			}
 		}
 
+		fnCtx := FunctionContext{
+			Registry: a.registry,
+			Config:   &config,
+			State:    &state,
+		}
+
 		namespace := fmt.Sprintf("%s-%s", user.Username, environment.Slug)
 		if err = ensureNamespace(ctx, a.clientset, namespace); err != nil {
 			return fmt.Errorf("ensuring namespace: %w", err)
@@ -72,7 +78,10 @@ func (a *App) deploy(d *model.Deployment) {
 			logger := logger.With("module", service.ModuleName, "service", service.ServiceName)
 			ctx := util.WithLogger(ctx, logger)
 
-			configPoints, err := service.FindConfigPoints(config, state)
+			moduleFnCtx := fnCtx
+			moduleFnCtx.ModuleName = service.ModuleName
+
+			configPoints, err := service.FindConfigPoints(moduleFnCtx)
 			if err != nil {
 				return fmt.Errorf("finding config points: %w", err)
 			}
@@ -86,7 +95,7 @@ func (a *App) deploy(d *model.Deployment) {
 				return nil
 			}
 
-			def, err := service.Evaluate(state)
+			def, err := service.Evaluate(moduleFnCtx)
 			if err != nil {
 				return fmt.Errorf("evaluating service: %w", err)
 			}

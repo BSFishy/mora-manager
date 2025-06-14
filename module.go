@@ -76,29 +76,25 @@ func (s *Service) RequiredServices() ([]ServiceRef, error) {
 
 type ListExpression []Expression
 
-func (l *ListExpression) IsTrivialExpression() bool {
-	if len(*l) != 1 {
-		return false
+func (l ListExpression) TrivialExpression() *Atom {
+	if len(l) != 1 {
+		return nil
 	}
 
-	e := (*l)[0]
-	return e.Atom != nil
+	e := l[0]
+	return e.Atom
 }
 
-func (l *ListExpression) GetFunctionName() (*string, error) {
-	if len(*l) < 1 {
-		return nil, errors.New("invalid empty list expression")
+func (l ListExpression) GetFunctionName(ctx FunctionContext) (string, error) {
+	if len(l) < 1 {
+		return "", errors.New("invalid empty list expression")
 	}
 
-	e := (*l)[0]
-	if e.Atom == nil {
-		return nil, errors.New("invalid function call")
-	}
+	return l[0].EvaluateIdentifier(ctx)
+}
 
-	// TODO: do i want this to just return nil if its not an identifier? instead
-	// of erroring?
-	atom := e.Atom
-	return atom.EvaluateIdentifier()
+func (l ListExpression) Args() Args {
+	return Args(l[1:])
 }
 
 type Expression struct {
@@ -106,7 +102,7 @@ type Expression struct {
 	List *ListExpression `json:"list,omitempty"`
 }
 
-func (e *Expression) GetConfigPoints(config Config, state State, moduleName string) ([]ConfigPoint, error) {
+func (e *Expression) GetConfigPoints(ctx FunctionContext) ([]ConfigPoint, error) {
 	util.AssertEnum("invalid expression", e.Atom, e.List)
 
 	if e.Atom != nil {
@@ -115,82 +111,59 @@ func (e *Expression) GetConfigPoints(config Config, state State, moduleName stri
 
 	// expression is a list
 	list := e.List
-	if list.IsTrivialExpression() {
+	if atom := list.TrivialExpression(); atom != nil {
 		return []ConfigPoint{}, nil
 	}
 
-	functionName, err := list.GetFunctionName()
+	functionName, err := list.GetFunctionName(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("getting function name: %w", err)
 	}
 
-	if *functionName == "config" {
-		if len(*list) != 2 && len(*list) != 3 {
-			return nil, errors.New("invalid config function call")
-		}
-
-		configNameExpr := (*list)[1]
-		if configNameExpr.Atom == nil {
-			return nil, errors.New("invalid config function call")
-		}
-
-		configName, err := configNameExpr.Atom.EvaluateIdentifier()
-		if err != nil {
-			return nil, fmt.Errorf("getting config name: %w", err)
-		}
-
-		if len(*list) == 3 {
-			moduleNameExpr := (*list)[2]
-			if moduleNameExpr.Atom == nil {
-				return nil, errors.New("invalid config function call")
-			}
-
-			module, err := moduleNameExpr.Atom.EvaluateIdentifier()
-			if err != nil {
-				return nil, fmt.Errorf("getting module name: %w", err)
-			}
-
-			moduleName = *configName
-			configName = module
-		}
-
-		if cfg := state.FindConfig(moduleName, *configName); cfg != nil {
-			return []ConfigPoint{}, nil
-		}
-
-		config := config.FindConfig(moduleName, *configName)
-		if config == nil {
-			return nil, errors.New("invalid config name")
-		}
-
-		name, err := config.Name.EvaluateString(state, moduleName)
-		if err != nil {
-			// realistically, this is a misconfiguration, but ill leave it like this
-			return nil, fmt.Errorf("evaluating name: %w", err)
-		}
-
-		var description *string
-		if config.Description != nil {
-			description, err = config.Description.EvaluateString(state, moduleName)
-			if err != nil {
-				return nil, fmt.Errorf("evaluating description: %w", err)
-			}
-		}
-
-		return []ConfigPoint{
-			{
-				ModuleName:  moduleName,
-				Identifier:  *configName,
-				Name:        *name,
-				Description: description,
-			},
-		}, nil
+	fn, ok := ctx.Registry.Get(functionName)
+	if !ok {
+		return nil, errors.New("invalid function")
 	}
 
-	return []ConfigPoint{}, nil
+	return fn.GetConfigPoints(ctx, list.Args())
 }
 
-func (e *Expression) EvaluateString(state State, moduleName string) (*string, error) {
+func (e *Expression) EvaluateIdentifier(ctx FunctionContext) (string, error) {
+	util.AssertEnum("invalid expression", e.Atom, e.List)
+
+	if e.Atom != nil {
+		return e.Atom.EvaluateIdentifier()
+	}
+
+	list := e.List
+	if atom := list.TrivialExpression(); atom != nil {
+		return atom.EvaluateIdentifier()
+	}
+
+	functionName, err := list.GetFunctionName(ctx)
+	if err != nil {
+		return "", fmt.Errorf("getting function name: %w", err)
+	}
+
+	fn, ok := ctx.Registry.Get(functionName)
+	if !ok {
+		return "", errors.New("invalid function")
+	}
+
+	value, err := fn.Evaluate(ctx, list.Args())
+	if err != nil {
+		return "", err
+	}
+
+	returnValue := value.Identifier()
+	if returnValue == nil {
+		return "", errors.New("function return is not an identifier")
+	}
+
+	return *returnValue, nil
+}
+
+func (e *Expression) EvaluateString(ctx FunctionContext) (string, error) {
 	util.AssertEnum("invalid expression", e.Atom, e.List)
 
 	if e.Atom != nil {
@@ -198,60 +171,31 @@ func (e *Expression) EvaluateString(state State, moduleName string) (*string, er
 	}
 
 	list := e.List
-	if list.IsTrivialExpression() {
-		return (*list)[0].EvaluateString(state, moduleName)
+	if atom := list.TrivialExpression(); atom != nil {
+		return atom.EvaluateString()
 	}
 
-	functionName, err := list.GetFunctionName()
+	functionName, err := list.GetFunctionName(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("getting function name: %w", err)
+		return "", fmt.Errorf("getting function name: %w", err)
 	}
 
-	if *functionName == "config" {
-		if len(*list) != 2 && len(*list) != 3 {
-			return nil, errors.New("invalid config function call")
-		}
-
-		configNameExpr := (*list)[1]
-		if configNameExpr.Atom == nil {
-			return nil, errors.New("invalid config function call")
-		}
-
-		configName, err := configNameExpr.Atom.EvaluateIdentifier()
-		if err != nil {
-			return nil, fmt.Errorf("getting config name: %w", err)
-		}
-
-		if len(*list) == 3 {
-			moduleNameExpr := (*list)[2]
-			if moduleNameExpr.Atom == nil {
-				return nil, errors.New("invalid config function call")
-			}
-
-			module, err := moduleNameExpr.Atom.EvaluateIdentifier()
-			if err != nil {
-				return nil, fmt.Errorf("getting module name: %w", err)
-			}
-
-			moduleName = *configName
-			configName = module
-		}
-
-		if configValue := state.FindConfig(moduleName, *configName); configValue != nil {
-			var (
-				value string
-				ok    bool
-			)
-
-			if value, ok = configValue.Value.(string); !ok {
-				panic("config string is not a string")
-			}
-
-			return &value, nil
-		}
+	fn, ok := ctx.Registry.Get(functionName)
+	if !ok {
+		return "", errors.New("invalid function")
 	}
 
-	return nil, errors.New("invalid expression")
+	value, err := fn.Evaluate(ctx, list.Args())
+	if err != nil {
+		return "", err
+	}
+
+	returnValue := value.String()
+	if returnValue == nil {
+		return "", errors.New("function return is not a string")
+	}
+
+	return *returnValue, nil
 }
 
 func (e *Expression) asIdentifier() *string {
@@ -268,22 +212,22 @@ type Atom struct {
 	Number     *string `json:"number,omitempty"`
 }
 
-func (a *Atom) EvaluateIdentifier() (*string, error) {
+func (a *Atom) EvaluateIdentifier() (string, error) {
 	util.AssertEnum("invalid atom", a.Identifier, a.String, a.Number)
 
 	if a.Identifier == nil {
-		return nil, errors.New("atom not identifier")
+		return "", errors.New("atom not identifier")
 	}
 
-	return a.Identifier, nil
+	return *a.Identifier, nil
 }
 
-func (a *Atom) EvaluateString() (*string, error) {
+func (a *Atom) EvaluateString() (string, error) {
 	util.AssertEnum("invalid atom", a.Identifier, a.String, a.Number)
 
 	if a.String == nil {
-		return nil, errors.New("atom not string")
+		return "", errors.New("atom not string")
 	}
 
-	return a.String, nil
+	return *a.String, nil
 }
