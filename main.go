@@ -83,6 +83,8 @@ func main() {
 				fmt.Fprint(w, "pong")
 			})
 
+			r.Use(app.apiMiddleware).HandlePost("/image", router.ErrorHandlerFunc(app.imagePush))
+
 			r.RouteFunc("/environment", func(r *router.Router) {
 				r.RouteFunc("/:slug", func(r *router.Router) {
 					r.Use(app.apiMiddleware).HandlePost("/deployment", router.ErrorHandlerFunc(app.createDeployment))
