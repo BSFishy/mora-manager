@@ -101,7 +101,26 @@ func main() {
 			r.Use(app.userProtected).HandleDelete("/", router.ErrorHandlerFunc(app.deleteEnvironmentHtmxRoute))
 		})
 
-		r.Use(app.userProtected).HandlePost("/deployment/:id/config", router.ErrorHandlerFunc(app.updateDeploymentConfigHtmxRoute))
+		r.RouteFunc("/deployment", func(r *router.Router) {
+			r.Use(app.userProtected).HandleGet("/", router.ErrorHandlerFunc(func(w http.ResponseWriter, r *http.Request) error {
+				ctx := r.Context()
+				user, _ := GetUser(ctx)
+
+				environments, err := app.db.GetUserEnvironments(ctx, user.Id)
+				if err != nil {
+					return fmt.Errorf("getting environments: %w", err)
+				}
+
+				deployments, err := app.db.GetDeployments(ctx, environments)
+				if err != nil {
+					return fmt.Errorf("getting deployments: %w", err)
+				}
+
+				return templates.DashboardDeployments(environments, deployments).Render(ctx, w)
+			}))
+
+			r.Use(app.userProtected).HandlePost("/:id/config", router.ErrorHandlerFunc(app.updateDeploymentConfigHtmxRoute))
+		})
 
 		r.RouteFunc("/token", func(r *router.Router) {
 			r.Use(app.userProtected).HandlePost("/", router.ErrorHandlerFunc(app.tokenHtmxRoute))

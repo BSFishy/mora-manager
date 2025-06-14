@@ -28,7 +28,12 @@ templ Dashboard(props DashboardProps) {
 					</div>
 				}
 				if len(props.Deployments) > 0 {
-					<div id="deployments" hx-history="false">
+					<div
+						id="deployments"
+						hx-history="false"
+						hx-get="/htmx/deployment"
+						hx-trigger="every 2s"
+					>
 						@DashboardDeployments(props.Environments, props.Deployments)
 					</div>
 				}
