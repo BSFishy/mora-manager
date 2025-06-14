@@ -125,7 +125,12 @@ func (e *Expression) GetConfigPoints(ctx FunctionContext) ([]ConfigPoint, error)
 		return nil, errors.New("invalid function")
 	}
 
-	return fn.GetConfigPoints(ctx, list.Args())
+	args := list.Args()
+	if fn.InvalidArgs(args) {
+		return nil, errors.New("invalid arguments")
+	}
+
+	return fn.GetConfigPoints(ctx, args)
 }
 
 func (e *Expression) EvaluateIdentifier(ctx FunctionContext) (string, error) {
@@ -150,7 +155,12 @@ func (e *Expression) EvaluateIdentifier(ctx FunctionContext) (string, error) {
 		return "", errors.New("invalid function")
 	}
 
-	value, err := fn.Evaluate(ctx, list.Args())
+	args := list.Args()
+	if fn.InvalidArgs(args) {
+		return "", errors.New("invalid arguments")
+	}
+
+	value, err := fn.Evaluate(ctx, args)
 	if err != nil {
 		return "", err
 	}
@@ -185,7 +195,12 @@ func (e *Expression) EvaluateString(ctx FunctionContext) (string, error) {
 		return "", errors.New("invalid function")
 	}
 
-	value, err := fn.Evaluate(ctx, list.Args())
+	args := list.Args()
+	if fn.InvalidArgs(args) {
+		return "", errors.New("invalid arguments")
+	}
+
+	value, err := fn.Evaluate(ctx, args)
 	if err != nil {
 		return "", err
 	}

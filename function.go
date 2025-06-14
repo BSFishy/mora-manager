@@ -19,6 +19,19 @@ type ExpressionFunction struct {
 	GetConfigPoints func(FunctionContext, Args) ([]ConfigPoint, error)
 }
 
+func (e *ExpressionFunction) InvalidArgs(args Args) bool {
+	len := args.Len()
+	if e.MinArgs > len {
+		return true
+	}
+
+	if e.MaxArgs != -1 && e.MaxArgs < len {
+		return true
+	}
+
+	return false
+}
+
 type TypeEnum int
 
 const (
