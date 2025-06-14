@@ -262,14 +262,6 @@ func (e *Expression) asIdentifier() *string {
 	return e.Atom.Identifier
 }
 
-func (e *Expression) asString() *string {
-	if e.Atom == nil {
-		return nil
-	}
-
-	return e.Atom.String
-}
-
 type Atom struct {
 	Identifier *string `json:"identifier,omitempty"`
 	String     *string `json:"string,omitempty"`

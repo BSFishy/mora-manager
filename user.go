@@ -37,11 +37,11 @@ func (a *App) loginMiddleware(handler http.Handler) http.Handler {
 			}
 
 			if !usersExist {
-				util.Redirect(w, "/setup/user")
+				http.Redirect(w, r, "/setup/user", http.StatusFound)
 				return nil
 			}
 
-			util.Redirect(w, "/dashboard")
+			http.Redirect(w, r, "/dashboard", http.StatusFound)
 			return nil
 		}
 
@@ -51,7 +51,7 @@ func (a *App) loginMiddleware(handler http.Handler) http.Handler {
 		}
 
 		if !usersExist {
-			util.Redirect(w, "/setup/secret")
+			http.Redirect(w, r, "/setup/secret", http.StatusFound)
 			return nil
 		}
 
@@ -70,7 +70,7 @@ func (a *App) userProtected(handler http.Handler) http.Handler {
 		}
 
 		if sessionId == nil {
-			util.Redirect(w, "/login")
+			http.Redirect(w, r, "/login", http.StatusFound)
 			return nil
 		}
 
@@ -78,14 +78,14 @@ func (a *App) userProtected(handler http.Handler) http.Handler {
 		if err != nil {
 			// invalid session cookie probably. let's be safe
 			DeleteSessionCookie(w)
-			util.Redirect(w, "/login")
+			http.Redirect(w, r, "/login", http.StatusFound)
 			return fmt.Errorf("getting session: %w", err)
 		}
 
 		if session == nil || session.UserID == nil {
 			// invalid session cookie, delete
 			DeleteSessionCookie(w)
-			util.Redirect(w, "/login")
+			http.Redirect(w, r, "/login", http.StatusFound)
 			return nil
 		}
 
@@ -111,7 +111,7 @@ func (a *App) userMiddleware(handler http.Handler) http.Handler {
 		}
 
 		if usersExist {
-			util.Redirect(w, "/login")
+			http.Redirect(w, r, "/login", http.StatusFound)
 			return nil
 		}
 
@@ -121,7 +121,7 @@ func (a *App) userMiddleware(handler http.Handler) http.Handler {
 		}
 
 		if sessionId == nil {
-			util.Redirect(w, "/setup/secret")
+			http.Redirect(w, r, "/setup/secret", http.StatusFound)
 			return nil
 		}
 
@@ -133,14 +133,14 @@ func (a *App) userMiddleware(handler http.Handler) http.Handler {
 		if session == nil {
 			// invalid session cookie, delete
 			DeleteSessionCookie(w)
-			util.Redirect(w, "/setup/secret")
+			http.Redirect(w, r, "/setup/secret", http.StatusFound)
 			return nil
 		}
 
 		if session.UserID != nil {
 			// session is associated with an actual user. send them directly to the
 			// dashboard
-			util.Redirect(w, "/dashboard")
+			http.Redirect(w, r, "/dashboard", http.StatusFound)
 			return nil
 		}
 

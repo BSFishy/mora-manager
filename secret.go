@@ -18,7 +18,7 @@ func (a *App) secretMiddleware(handler http.Handler) http.Handler {
 		}
 
 		if usersExist {
-			util.Redirect(w, "/login")
+			http.Redirect(w, r, "/login", http.StatusFound)
 			return nil
 		}
 
@@ -28,7 +28,7 @@ func (a *App) secretMiddleware(handler http.Handler) http.Handler {
 		}
 
 		if sessionId != nil {
-			util.Redirect(w, "/setup/user")
+			http.Redirect(w, r, "/setup/user", http.StatusFound)
 			return nil
 		}
 

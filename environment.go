@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/BSFishy/mora-manager/templates"
-	"github.com/BSFishy/mora-manager/util"
 )
 
 func (a *App) createEnvironmentHtmxRoute(w http.ResponseWriter, r *http.Request) error {
@@ -60,7 +59,6 @@ func (a *App) deleteEnvironmentHtmxRoute(w http.ResponseWriter, r *http.Request)
 		return fmt.Errorf("getting environment: %w", err)
 	}
 
-	util.LogFromCtx(ctx).Info("here", "environment", environment)
 	if environment == nil || environment.UserId != user.Id {
 		w.WriteHeader(http.StatusBadRequest)
 		return nil

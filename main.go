@@ -11,7 +11,6 @@ import (
 	"github.com/BSFishy/mora-manager/model"
 	"github.com/BSFishy/mora-manager/router"
 	"github.com/BSFishy/mora-manager/templates"
-	"github.com/BSFishy/mora-manager/util"
 	"github.com/a-h/templ"
 	"k8s.io/client-go/kubernetes"
 )
@@ -111,7 +110,7 @@ func main() {
 	})
 
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-		util.Redirect(w, "/setup/secret")
+		http.Redirect(w, r, "/setup/secret", http.StatusFound)
 	})
 
 	r.Use(app.loginMiddleware).HandleGet("/login", templ.Handler(templates.Login()))

@@ -32,7 +32,7 @@ func (a *App) createDeployment(w http.ResponseWriter, req *http.Request) error {
 	}
 
 	if environment == nil || environment.UserId != user.Id {
-		w.WriteHeader(http.StatusNotFound)
+		http.NotFound(w, req)
 		return nil
 	}
 
