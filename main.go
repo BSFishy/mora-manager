@@ -102,6 +102,8 @@ func main() {
 			r.Use(app.userProtected).HandleDelete("/", router.ErrorHandlerFunc(app.deleteEnvironmentHtmxRoute))
 		})
 
+		r.Use(app.userProtected).HandlePost("/deployment/:id/config", router.ErrorHandlerFunc(app.updateDeploymentConfigHtmxRoute))
+
 		r.RouteFunc("/token", func(r *router.Router) {
 			r.Use(app.userProtected).HandlePost("/", router.ErrorHandlerFunc(app.tokenHtmxRoute))
 			r.Use(app.userProtected).HandlePost("/revoke", router.ErrorHandlerFunc(app.revokeTokenHtmxRoute))
@@ -186,6 +188,7 @@ func main() {
 				configPoints = make([]templates.ConfigPoint, len(points))
 				for i, point := range points {
 					configPoints[i] = templates.ConfigPoint{
+						ModuleName:  point.ModuleName,
 						Identifier:  point.Identifier,
 						Name:        point.Name,
 						Description: point.Description,
@@ -194,7 +197,7 @@ func main() {
 			}
 		}
 
-		return templates.Deployment(configPoints).Render(ctx, w)
+		return templates.Deployment(deployment.Id, configPoints).Render(ctx, w)
 	}))
 
 	r.Use(app.userProtected).HandleGet("/environment", templ.Handler(templates.CreateEnvironment()))

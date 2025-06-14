@@ -14,17 +14,12 @@ type Module struct {
 }
 
 type ModuleConfig struct {
-	Identifier  string      `json:"identifier"`
-	Name        Expression  `json:"name"`
-	Description *Expression `json:"description,omitempty"`
-}
-
-func (m ModuleConfig) WithModuleName(module string) ModuleConfig {
-	return ModuleConfig{
-		Identifier:  fmt.Sprintf("%s/%s", module, m.Identifier),
-		Name:        m.Name,
-		Description: m.Description,
-	}
+	// this field doesnt exist on the api but it is useful for passing these
+	// around
+	ModuleName  string
+	Identifier  string
+	Name        Expression
+	Description *Expression
 }
 
 type Service struct {
@@ -130,7 +125,7 @@ func (e *Expression) GetConfigPoints(config Config, state State, moduleName stri
 	}
 
 	if *functionName == "config" {
-		if len(*list) != 2 {
+		if len(*list) != 2 && len(*list) != 3 {
 			return nil, errors.New("invalid config function call")
 		}
 
@@ -144,12 +139,26 @@ func (e *Expression) GetConfigPoints(config Config, state State, moduleName stri
 			return nil, fmt.Errorf("getting config name: %w", err)
 		}
 
-		moduleConfigName := fmt.Sprintf("%s/%s", moduleName, *configName)
+		if len(*list) == 3 {
+			moduleNameExpr := (*list)[2]
+			if moduleNameExpr.Atom == nil {
+				return nil, errors.New("invalid config function call")
+			}
+
+			module, err := moduleNameExpr.Atom.EvaluateIdentifier()
+			if err != nil {
+				return nil, fmt.Errorf("getting module name: %w", err)
+			}
+
+			moduleName = *configName
+			configName = module
+		}
+
 		if cfg := state.FindConfig(moduleName, *configName); cfg != nil {
 			return []ConfigPoint{}, nil
 		}
 
-		config := config.FindConfig(moduleConfigName)
+		config := config.FindConfig(moduleName, *configName)
 		if config == nil {
 			return nil, errors.New("invalid config name")
 		}
@@ -170,7 +179,8 @@ func (e *Expression) GetConfigPoints(config Config, state State, moduleName stri
 
 		return []ConfigPoint{
 			{
-				Identifier:  moduleConfigName,
+				ModuleName:  moduleName,
+				Identifier:  *configName,
 				Name:        *name,
 				Description: description,
 			},
@@ -198,7 +208,7 @@ func (e *Expression) EvaluateString(state State, moduleName string) (*string, er
 	}
 
 	if *functionName == "config" {
-		if len(*list) != 2 {
+		if len(*list) != 2 && len(*list) != 3 {
 			return nil, errors.New("invalid config function call")
 		}
 
@@ -210,6 +220,21 @@ func (e *Expression) EvaluateString(state State, moduleName string) (*string, er
 		configName, err := configNameExpr.Atom.EvaluateIdentifier()
 		if err != nil {
 			return nil, fmt.Errorf("getting config name: %w", err)
+		}
+
+		if len(*list) == 3 {
+			moduleNameExpr := (*list)[2]
+			if moduleNameExpr.Atom == nil {
+				return nil, errors.New("invalid config function call")
+			}
+
+			module, err := moduleNameExpr.Atom.EvaluateIdentifier()
+			if err != nil {
+				return nil, fmt.Errorf("getting module name: %w", err)
+			}
+
+			moduleName = *configName
+			configName = module
 		}
 
 		if configValue := state.FindConfig(moduleName, *configName); configValue != nil {

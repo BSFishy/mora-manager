@@ -20,7 +20,8 @@ func (c *ApiConfig) FlattenConfigs() []ModuleConfig {
 	configs := []ModuleConfig{}
 	for _, module := range c.Modules {
 		for _, config := range module.Configs {
-			configs = append(configs, config.WithModuleName(module.Name))
+			config.ModuleName = module.Name
+			configs = append(configs, config)
 		}
 	}
 
@@ -83,6 +84,7 @@ func (c *ApiConfig) TopologicalSort() ([]ServiceConfig, error) {
 }
 
 type ConfigPoint struct {
+	ModuleName  string
 	Identifier  string
 	Name        string
 	Description *string
@@ -93,9 +95,9 @@ type Config struct {
 	Configs  []ModuleConfig
 }
 
-func (c *Config) FindConfig(name string) *ModuleConfig {
+func (c *Config) FindConfig(moduleName, identifier string) *ModuleConfig {
 	for _, config := range c.Configs {
-		if config.Identifier == name {
+		if config.ModuleName == moduleName && config.Identifier == identifier {
 			return &config
 		}
 	}

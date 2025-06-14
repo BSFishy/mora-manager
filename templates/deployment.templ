@@ -1,22 +1,44 @@
 package templates
 
+import "github.com/BSFishy/mora-manager/templates/styles"
+import "fmt"
+
 type ConfigPoint struct {
+	ModuleName  string
 	Identifier  string
 	Name        string
 	Description *string
 }
 
-templ Deployment(configPoints []ConfigPoint) {
+templ Deployment(id string, configPoints []ConfigPoint) {
 	@layout("Deployment") {
-		Hello world
-		for _, point := range configPoints {
-			<div>
-				<p>{ point.Identifier }</p>
-				<p>{ point.Name }</p>
-				if point.Description != nil {
-					<p>{ *point.Description }</p>
-				}
-			</div>
-		}
+		<div
+			class={ styles.W("100vw"), styles.Minh("100vh"), styles.Flex(), styles.FlexCol(), styles.Align("center"), styles.Justify("center"), styles.Gap(2) }
+		>
+			@link(templ.Attributes{"href": "/dashboard"}) {
+				Home
+			}
+			if len(configPoints) > 0 {
+				<form
+					hx-post={ fmt.Sprintf("/htmx/deployment/%s/config", id) }
+					class={ styles.Flex(), styles.FlexCol(), styles.Align("center"), styles.Maxw("300px"), styles.Gap(2) }
+				>
+					for _, point := range configPoints {
+						<div>
+							<input type="hidden" name="module_name" value={ point.ModuleName }/>
+							<input type="hidden" name="identifier" value={ point.Identifier }/>
+							<h3 hx-disable class={ styles.TextSize("xl") }>{ point.Name }</h3>
+							if point.Description != nil {
+								<p hx-disable>{ *point.Description }</p>
+							}
+							@textInput(templ.Attributes{"name": "value", "class": templ.Classes(styles.W("100%"))})
+						</div>
+					}
+					@submit(templ.Attributes{}) {
+						Submit
+					}
+				</form>
+			}
+		</div>
 	}
 }

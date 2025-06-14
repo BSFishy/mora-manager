@@ -138,7 +138,7 @@ func (d *Deployment) UpdateStatus(ctx context.Context, tx *sql.Tx, status Deploy
 	return err
 }
 
-func (d *Deployment) UpdateState(ctx context.Context, tx *sql.Tx, state map[string]any) error {
+func (d *Deployment) UpdateState(ctx context.Context, tx *sql.Tx, state any) error {
 	stateBlob, err := json.Marshal(state)
 	if err != nil {
 		return fmt.Errorf("encoding state: %w", err)

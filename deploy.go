@@ -45,7 +45,7 @@ func (a *App) deploy(d *model.Deployment) {
 			return fmt.Errorf("refreshing deployment: %w", err)
 		}
 
-		if d.Status != model.NotStarted && d.Status != model.InProgress {
+		if d.Status != model.NotStarted && d.Status != model.Waiting && d.Status != model.InProgress {
 			return errors.New("deployment not in valid state")
 		}
 
@@ -72,7 +72,8 @@ func (a *App) deploy(d *model.Deployment) {
 
 		services := state.FilterDeployedServices(config.Services)
 		for _, service := range services {
-			logger = logger.With("module", service.ModuleName, "service", service.ServiceName)
+			logger := logger.With("module", service.ModuleName, "service", service.ServiceName)
+			ctx := util.WithLogger(ctx, logger)
 
 			configPoints, err := service.FindConfigPoints(config, state)
 			if err != nil {
