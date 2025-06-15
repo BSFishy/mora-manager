@@ -22,10 +22,15 @@ type ModuleConfig struct {
 	Description *Expression
 }
 
+type ApiWingman struct {
+	Image Expression
+}
+
 type Service struct {
 	Name     string       `json:"name"`
 	Image    Expression   `json:"image"`
 	Requires []Expression `json:"requires"`
+	Wingman  *ApiWingman  `json:"wingman,omitempty"`
 }
 
 type ServiceRef struct {

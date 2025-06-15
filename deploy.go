@@ -100,15 +100,17 @@ func (a *App) deploy(d *model.Deployment) {
 				return fmt.Errorf("evaluating service: %w", err)
 			}
 
-			isValid, err := def.IsValid(ctx, a.clientset, namespace)
-			if err != nil {
-				return fmt.Errorf("checking if service is valid: %w", err)
+			if wm := def.WingmanDeployment(namespace); wm != nil {
+				if err = wm.Deploy(ctx, a.clientset); err != nil {
+					return fmt.Errorf("deploying wingman: %w", err)
+				}
+
+				logger.Info("deployed wingman")
 			}
 
-			if !isValid {
-				if err = def.Deploy(ctx, a.clientset, namespace); err != nil {
-					return fmt.Errorf("deploying service: %w", err)
-				}
+			deployment := def.Deployment(namespace)
+			if err = deployment.Deploy(ctx, a.clientset); err != nil {
+				return fmt.Errorf("deploying service: %w", err)
 			}
 
 			state.AddDeployedService(service.ModuleName, service.ServiceName)

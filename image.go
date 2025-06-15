@@ -49,8 +49,13 @@ func (a *App) imagePush(w http.ResponseWriter, r *http.Request) error {
 		return fmt.Errorf("pushing image: %w", err)
 	}
 
+	digest, err := img.Digest()
+	if err != nil {
+		return fmt.Errorf("getting image digest: %w", err)
+	}
+
 	response := ImagePushResponse{
-		Image: pushTag.String(),
+		Image: fmt.Sprintf("%s@%s", pushTag.String(), digest.String()),
 	}
 
 	data, err := json.Marshal(response)

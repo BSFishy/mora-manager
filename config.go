@@ -1,16 +1,10 @@
 package main
 
 import (
-	"context"
 	"fmt"
-	"time"
 
-	"github.com/BSFishy/mora-manager/util"
-	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	k8serror "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 type ApiConfig struct {
@@ -42,10 +36,18 @@ func (c *ApiConfig) TopologicalSort() ([]ServiceConfig, error) {
 				return nil, fmt.Errorf("getting required services: %w", err)
 			}
 
+			var wingman *ServiceWingman
+			if service.Wingman != nil {
+				wingman = &ServiceWingman{
+					Image: service.Wingman.Image,
+				}
+			}
+
 			services[path] = ServiceConfig{
 				ModuleName:  module.Name,
 				ServiceName: service.Name,
 				Image:       service.Image,
+				Wingman:     wingman,
 			}
 
 			for _, dep := range requires {
@@ -106,10 +108,16 @@ func (c *Config) FindConfig(moduleName, identifier string) *ModuleConfig {
 	return nil
 }
 
+type ServiceWingman struct {
+	Image Expression
+}
+
 type ServiceConfig struct {
 	ModuleName  string
 	ServiceName string
 	Image       Expression
+
+	Wingman *ServiceWingman
 }
 
 func (s *ServiceConfig) FindConfigPoints(ctx FunctionContext) ([]ConfigPoint, error) {
@@ -120,6 +128,16 @@ func (s *ServiceConfig) FindConfigPoints(ctx FunctionContext) ([]ConfigPoint, er
 	}
 
 	configPoints = append(configPoints, image...)
+
+	if s.Wingman != nil {
+		wingmanImage, err := s.Wingman.Image.GetConfigPoints(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("getting wingman image config points: %w", err)
+		}
+
+		configPoints = append(configPoints, wingmanImage...)
+	}
+
 	return configPoints, nil
 }
 
@@ -129,13 +147,31 @@ func (s *ServiceConfig) Evaluate(ctx FunctionContext, userName string, environme
 		return nil, fmt.Errorf("evaluating image: %w", err)
 	}
 
+	var wingman *WingmanDefinition
+	if s.Wingman != nil {
+		wingmanImage, err := s.Wingman.Image.EvaluateString(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("evaluating wingman image: %w", err)
+		}
+
+		wingman = &WingmanDefinition{
+			Image: wingmanImage,
+		}
+	}
+
 	return &ServiceDefinition{
 		User:        userName,
 		Environment: environmentName,
 		Module:      s.ModuleName,
 		Name:        s.ServiceName,
 		Image:       image,
+
+		Wingman: wingman,
 	}, nil
+}
+
+type WingmanDefinition struct {
+	Image string
 }
 
 type ServiceDefinition struct {
@@ -144,100 +180,40 @@ type ServiceDefinition struct {
 	Module      string
 	Name        string
 	Image       string
+
+	Wingman *WingmanDefinition
 }
 
-func (s *ServiceDefinition) FullName() string {
-	return fmt.Sprintf("%s_%s_%s_%s", s.User, s.Environment, s.Module, s.Name)
+func (s *ServiceDefinition) Deployment(namespace string) *KubernetesDeployment {
+	return &KubernetesDeployment{
+		Namespace:   namespace,
+		User:        s.User,
+		Environment: s.Environment,
+		Module:      s.Module,
+		Service:     s.Name,
+		Image:       s.Image,
+	}
 }
 
-func (s *ServiceDefinition) IsValid(ctx context.Context, clientset *kubernetes.Clientset, namespace string) (bool, error) {
-	pod, err := clientset.CoreV1().Pods(namespace).Get(ctx, s.FullName(), metav1.GetOptions{})
-	if err == nil {
-		containers := pod.Spec.Containers
-		if len(containers) != 1 {
-			return false, nil
-		}
-
-		container := containers[0]
-		if container.Image != s.Image {
-			return false, nil
-		}
-
-		return true, nil
+func (s *ServiceDefinition) WingmanDeployment(namespace string) *KubernetesDeployment {
+	if s.Wingman == nil {
+		return nil
 	}
 
-	if k8serror.IsNotFound(err) {
-		return false, nil
-	}
-
-	return false, err
-}
-
-func (s *ServiceDefinition) Deploy(ctx context.Context, clientset *kubernetes.Clientset, namespace string) error {
-	name := util.SanitizeDNS1123Subdomain(s.FullName())
-
-	_, err := clientset.AppsV1().Deployments(namespace).Get(ctx, name, metav1.GetOptions{})
-	if err == nil {
-		err = clientset.AppsV1().Deployments(namespace).Delete(ctx, name, metav1.DeleteOptions{})
-		if err != nil {
-			return fmt.Errorf("deleting pod: %w", err)
-		}
-
-		for {
-			_, err := clientset.AppsV1().Deployments(namespace).Get(ctx, name, metav1.GetOptions{})
-			if err != nil {
-				if k8serror.IsNotFound(err) {
-					break
-				}
-
-				return fmt.Errorf("checking pod deletion: %w", err)
-			}
-
-			time.Sleep(500 * time.Millisecond)
-		}
-	} else if !k8serror.IsNotFound(err) {
-		return fmt.Errorf("getting pod: %w", err)
-	}
-
-	matchLabels := map[string]string{
-		"mora.enabled":     "true",
-		"mora.user":        s.User,
-		"mora.environment": s.Environment,
-		"mora.module":      s.Module,
-		"mora.service":     s.Name,
-	}
-
-	deployment := &appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-		},
-		Spec: appsv1.DeploymentSpec{
-			Selector: &metav1.LabelSelector{
-				MatchLabels: matchLabels,
-			},
-			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      name,
-					Namespace: namespace,
-					Labels:    matchLabels,
-				},
-				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{
-						{
-							Name:  util.SanitizeDNS1123Label(s.Name),
-							Image: s.Image,
-						},
-					},
-				},
+	subservice := "wingman"
+	return &KubernetesDeployment{
+		Namespace:   namespace,
+		User:        s.User,
+		Environment: s.Environment,
+		Module:      s.Module,
+		Service:     s.Name,
+		Subservice:  &subservice,
+		Image:       s.Wingman.Image,
+		Ports: []corev1.ServicePort{
+			{
+				Port:       8080,
+				TargetPort: intstr.FromInt(8080),
 			},
 		},
 	}
-
-	_, err = clientset.AppsV1().Deployments(namespace).Create(ctx, deployment, metav1.CreateOptions{})
-	if err != nil {
-		return fmt.Errorf("creating pod: %w", err)
-	}
-
-	return nil
 }
