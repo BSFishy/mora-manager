@@ -29,6 +29,8 @@ func (a *app) handleConfigPoints(w http.ResponseWriter, r *http.Request) error {
 		return fmt.Errorf("getting config points: %w", err)
 	}
 
+	fmt.Printf("writing: %+v\n", configPoints)
+
 	err = json.NewEncoder(w).Encode(GetConfigPointsResponse{
 		ConfigPoints: configPoints,
 	})
