@@ -119,6 +119,8 @@ func (a *App) deploy(d *model.Deployment) {
 						return fmt.Errorf("getting wingman config points: %w", err)
 					}
 
+					logger.Info("here", "cfp", cfp)
+
 					if len(cfp) > 0 {
 						if err = d.UpdateStateAndStatus(ctx, tx, model.Waiting, state); err != nil {
 							return fmt.Errorf("updating state: %w", err)

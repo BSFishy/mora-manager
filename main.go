@@ -76,7 +76,6 @@ func main() {
 	app := NewApp()
 
 	r := router.NewRouter()
-	r = *r.Use(log)
 
 	r.RouteFunc("/api", func(r *router.Router) {
 		r.RouteFunc("/v1", func(r *router.Router) {

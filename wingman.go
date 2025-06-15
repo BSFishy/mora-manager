@@ -5,11 +5,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"time"
 
 	"github.com/BSFishy/mora-manager/state"
+	"github.com/BSFishy/mora-manager/util"
 	"github.com/BSFishy/mora-manager/wingman"
 	k8serror "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -62,13 +62,17 @@ func (a *App) FindWingman(ctx context.Context, user, environment, module, servic
 	return nil, err
 }
 
-func (r *RunwayWingman) request(method, url string, body io.Reader) (*http.Response, error) {
-	req, err := http.NewRequest(method, fmt.Sprintf("%s%s", r.Url, url), body)
-	if err != nil {
-		return nil, fmt.Errorf("creating request: %w", err)
-	}
+func (r *RunwayWingman) request(method, url string, body []byte) (*http.Response, error) {
+	fullUrl := fmt.Sprintf("%s%s", r.Url, url)
 
+	var err error
 	for range 10 {
+		var req *http.Request
+		req, err = http.NewRequest(method, fullUrl, bytes.NewReader(body))
+		if err != nil {
+			return nil, fmt.Errorf("creating request: %w", err)
+		}
+
 		var resp *http.Response
 		resp, err = r.Client.Do(req)
 		if err == nil && resp.StatusCode == 200 {
@@ -91,7 +95,7 @@ func (r *RunwayWingman) GetConfigPoints(ctx context.Context, state state.State) 
 		return nil, fmt.Errorf("encoding body: %w", err)
 	}
 
-	resp, err := r.request(http.MethodPost, "/api/v1/config-point", bytes.NewReader(body))
+	resp, err := r.request(http.MethodPost, "/api/v1/config-point", body)
 	if err != nil {
 		return nil, fmt.Errorf("getting endpoint: %w", err)
 	}
@@ -100,6 +104,8 @@ func (r *RunwayWingman) GetConfigPoints(ctx context.Context, state state.State) 
 	if err = json.NewDecoder(resp.Body).Decode(&bodyData); err != nil {
 		return nil, fmt.Errorf("decoding body: %w", err)
 	}
+
+	util.LogFromCtx(ctx).Info("here 2", "data", data)
 
 	return data.ConfigPoints, nil
 }

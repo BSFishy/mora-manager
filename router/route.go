@@ -2,11 +2,30 @@ package router
 
 import (
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strings"
 
 	"github.com/BSFishy/mora-manager/util"
 )
+
+type statusCodeResponseWriter struct {
+	inner      http.ResponseWriter
+	statusCode int
+}
+
+func (s *statusCodeResponseWriter) Header() http.Header {
+	return s.inner.Header()
+}
+
+func (s *statusCodeResponseWriter) Write(data []byte) (int, error) {
+	return s.inner.Write(data)
+}
+
+func (s *statusCodeResponseWriter) WriteHeader(statusCode int) {
+	s.statusCode = statusCode
+	s.inner.WriteHeader(statusCode)
+}
 
 type ErrorHandlerFunc func(http.ResponseWriter, *http.Request) error
 
@@ -14,11 +33,23 @@ func (e ErrorHandlerFunc) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	logger := util.LogFromCtx(ctx)
 
-	err := e(w, r)
+	logger = logger.With(slog.Group("request", "method", r.Method, "url", r.URL.String()))
+	r = r.WithContext(util.WithLogger(ctx, logger))
+
+	writer := &statusCodeResponseWriter{
+		inner:      w,
+		statusCode: 200,
+	}
+
+	logger.Info("handling request")
+
+	err := e(writer, r)
 	if err != nil {
 		logger.Error("failed to handle route", "err", err)
-		w.WriteHeader(http.StatusInternalServerError)
+		writer.WriteHeader(http.StatusInternalServerError)
 	}
+
+	logger.Info("completed request", slog.Group("response", "statusCode", writer.statusCode))
 }
 
 func (r *Router) register(method, path string, handler http.Handler) {
