@@ -24,6 +24,7 @@
               pkgs.go
               pkgs.k9s
               pkgs.just
+              pkgs.tilt
               templ.packages.${system}.templ
             ];
           };
