@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+
+	"github.com/BSFishy/mora-manager/util"
 )
 
 func (d *DB) Transact(ctx context.Context, f func(*sql.Tx) error) error {
@@ -15,7 +17,7 @@ func (d *DB) Transact(ctx context.Context, f func(*sql.Tx) error) error {
 	defer func() {
 		if r := recover(); r != nil {
 			tx.Rollback()
-			panic(r)
+			util.LogFromCtx(ctx).Error("transaction panicked", "err", r)
 		}
 	}()
 

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/BSFishy/mora-manager/state"
 	"github.com/BSFishy/mora-manager/util"
 )
 
@@ -33,13 +34,8 @@ type Service struct {
 	Wingman  *ApiWingman  `json:"wingman,omitempty"`
 }
 
-type ServiceRef struct {
-	Module  string
-	Service string
-}
-
-func (s *Service) RequiredServices() ([]ServiceRef, error) {
-	services := []ServiceRef{}
+func (s *Service) RequiredServices() ([]state.ServiceRef, error) {
+	services := []state.ServiceRef{}
 	for _, service := range s.Requires {
 		list := service.List
 		if list == nil {
@@ -70,7 +66,7 @@ func (s *Service) RequiredServices() ([]ServiceRef, error) {
 			return nil, errors.New("service reference service name is not an identifier")
 		}
 
-		services = append(services, ServiceRef{
+		services = append(services, state.ServiceRef{
 			Module:  *moduleName,
 			Service: *serviceName,
 		})

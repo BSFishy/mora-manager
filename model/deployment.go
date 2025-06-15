@@ -130,8 +130,9 @@ func (d *Deployment) UpdateStatus(ctx context.Context, tx *sql.Tx, status Deploy
 }
 
 func (d *Deployment) UpdateStatusDb(ctx context.Context, db *DB, status DeploymentStatus) error {
-	_, err := db.db.ExecContext(ctx, "UPDATE deployments SET status = $1, updated_at = now() WHERE id = $2", status, d.Id)
-	return err
+	return db.Transact(ctx, func(tx *sql.Tx) error {
+		return d.UpdateStatus(ctx, tx, status)
+	})
 }
 
 func (d *Deployment) UpdateState(ctx context.Context, tx *sql.Tx, state any) error {

@@ -7,13 +7,16 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/BSFishy/mora-manager/util"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
 )
 
-// TODO: make this configurable, through env vars
-const REPO_URL = "localhost:5000"
+var (
+	EXTERNAL_REPO_URL = util.GetenvDefault("MORA_EXTERNAL_REPO_URL", "localhost:5000")
+	INTERNAL_REPO_URL = util.GetenvDefault("MORA_INTERNAL_REPO_URL", "localhost:5000")
+)
 
 type ImagePushResponse struct {
 	Image string `json:"image"`
@@ -40,7 +43,9 @@ func (a *App) imagePush(w http.ResponseWriter, r *http.Request) error {
 		return fmt.Errorf("creating image: %w", err)
 	}
 
-	pushTag, err := name.NewTag(fmt.Sprintf("%s/%s_%s/%s_%s", REPO_URL, user.Username, environment, module, image))
+	// TODO: do i want to support secure?
+	imageName := fmt.Sprintf("%s_%s/%s_%s", user.Username, environment, module, image)
+	pushTag, err := name.NewTag(fmt.Sprintf("%s/%s", INTERNAL_REPO_URL, imageName), name.Insecure)
 	if err != nil {
 		return fmt.Errorf("creating push tag: %w", err)
 	}
@@ -55,7 +60,7 @@ func (a *App) imagePush(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	response := ImagePushResponse{
-		Image: fmt.Sprintf("%s@%s", pushTag.String(), digest.String()),
+		Image: fmt.Sprintf("%s/%s@%s", EXTERNAL_REPO_URL, imageName, digest.String()),
 	}
 
 	data, err := json.Marshal(response)

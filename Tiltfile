@@ -1,7 +1,8 @@
-docker_build('localhost:5000/runway', '.',
+docker_build('localhost:5050/runway', '.',
   dockerfile='Dockerfile.development',
   live_update=[
     sync('.', '/app'),
+    run('find /tmp -maxdepth 1 -name "go-*" | xargs -r rm -r'),
   ]
 )
 

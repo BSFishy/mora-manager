@@ -10,6 +10,7 @@ import (
 
 	"github.com/BSFishy/mora-manager/model"
 	"github.com/BSFishy/mora-manager/router"
+	"github.com/BSFishy/mora-manager/state"
 	"github.com/BSFishy/mora-manager/templates"
 	"github.com/a-h/templ"
 	"k8s.io/client-go/kubernetes"
@@ -195,7 +196,7 @@ func main() {
 				return fmt.Errorf("decoding config: %w", err)
 			}
 
-			var state State
+			var state state.State
 			if deployment.State != nil {
 				if err = json.Unmarshal(*deployment.State, &state); err != nil {
 					return fmt.Errorf("decoding state: %w", err)
@@ -208,7 +209,7 @@ func main() {
 				State:    &state,
 			}
 
-			services := state.FilterDeployedServices(config.Services)
+			services := config.Services[state.ServiceIndex:]
 			if len(services) > 0 {
 				service := services[0]
 				moduleFnCtx := fnCtx
@@ -226,6 +227,27 @@ func main() {
 						Identifier:  point.Identifier,
 						Name:        point.Name,
 						Description: point.Description,
+					}
+				}
+
+				wm, err := app.FindWingman(ctx, user.Username, environment.Slug, service.ModuleName, service.ServiceName)
+				if err != nil {
+					return fmt.Errorf("getting wingman: %w", err)
+				}
+
+				if wm != nil {
+					cfp, err := wm.GetConfigPoints(ctx, state)
+					if err != nil {
+						return fmt.Errorf("getting wingman config points: %w", err)
+					}
+
+					for _, point := range cfp {
+						configPoints = append(configPoints, templates.ConfigPoint{
+							ModuleName:  service.ModuleName,
+							Identifier:  point.Identifier,
+							Name:        point.Name,
+							Description: point.Description,
+						})
 					}
 				}
 			}

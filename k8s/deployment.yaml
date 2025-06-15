@@ -35,12 +35,16 @@ spec:
       serviceAccountName: mora-admin
       containers:
         - name: runway
-          image: localhost:5000/runway
+          image: localhost:5050/runway
           ports:
             - containerPort: 8080
           env:
             - name: MORA_DB_HOST
               value: postgres.mora-dev:5432
+            - name: MORA_EXTERNAL_REPO_URL
+              value: localhost:5000
+            - name: MORA_INTERNAL_REPO_URL
+              value: registry.mora-dev:5000
 ---
 apiVersion: v1
 kind: Service

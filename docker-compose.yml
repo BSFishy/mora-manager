@@ -1,22 +1,7 @@
 version: "3.8"
 services:
-  postgres:
-    image: postgres:16
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: mora
-      POSTGRES_PASSWORD: mora
-      POSTGRES_DB: mora
-    ports:
-      - "5432:5432"
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-
   registry:
     image: registry:2
     restart: always
     ports:
-      - "5000:5000"
-
-volumes:
-  pgdata:
+      - "5050:5000"

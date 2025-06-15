@@ -4,7 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+
+	"github.com/BSFishy/mora-manager/state"
 )
+
+type GetConfigPointsRequest struct {
+	State state.State
+}
 
 type GetConfigPointsResponse struct {
 	ConfigPoints []ConfigPoint
@@ -13,7 +19,12 @@ type GetConfigPointsResponse struct {
 func (a *app) handleConfigPoints(w http.ResponseWriter, r *http.Request) error {
 	ctx := r.Context()
 
-	configPoints, err := a.wingman.GetConfigPoints(ctx)
+	var body GetConfigPointsRequest
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		return fmt.Errorf("decoding body: %w", err)
+	}
+
+	configPoints, err := a.wingman.GetConfigPoints(ctx, body.State)
 	if err != nil {
 		return fmt.Errorf("getting config points: %w", err)
 	}

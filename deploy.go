@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"github.com/BSFishy/mora-manager/model"
+	"github.com/BSFishy/mora-manager/state"
 	"github.com/BSFishy/mora-manager/util"
 	corev1 "k8s.io/api/core/v1"
 	k8serror "k8s.io/apimachinery/pkg/api/errors"
@@ -55,7 +56,7 @@ func (a *App) deploy(d *model.Deployment) {
 			return fmt.Errorf("decoding config: %w", err)
 		}
 
-		var state State
+		var state state.State
 		if d.State != nil {
 			if err = json.Unmarshal(*d.State, &state); err != nil {
 				return fmt.Errorf("decoding state: %w", err)
@@ -73,7 +74,7 @@ func (a *App) deploy(d *model.Deployment) {
 			return fmt.Errorf("ensuring namespace: %w", err)
 		}
 
-		services := state.FilterDeployedServices(config.Services)
+		services := config.Services[state.ServiceIndex:]
 		for _, service := range services {
 			logger := logger.With("module", service.ModuleName, "service", service.ServiceName)
 			ctx := util.WithLogger(ctx, logger)
@@ -106,6 +107,27 @@ func (a *App) deploy(d *model.Deployment) {
 				}
 
 				logger.Info("deployed wingman")
+
+				rwm, err := a.FindWingman(ctx, user.Username, environment.Slug, service.ModuleName, service.ServiceName)
+				if err != nil {
+					return fmt.Errorf("finding wingman: %w", err)
+				}
+
+				if rwm != nil {
+					cfp, err := rwm.GetConfigPoints(ctx, state)
+					if err != nil {
+						return fmt.Errorf("getting wingman config points: %w", err)
+					}
+
+					if len(cfp) > 0 {
+						if err = d.UpdateStateAndStatus(ctx, tx, model.Waiting, state); err != nil {
+							return fmt.Errorf("updating state: %w", err)
+						}
+
+						logger.Info("waiting for dynamic config")
+						return nil
+					}
+				}
 			}
 
 			deployment := def.Deployment(namespace)
@@ -113,7 +135,7 @@ func (a *App) deploy(d *model.Deployment) {
 				return fmt.Errorf("deploying service: %w", err)
 			}
 
-			state.AddDeployedService(service.ModuleName, service.ServiceName)
+			state.ServiceIndex++
 			logger.Info("deployed service")
 		}
 

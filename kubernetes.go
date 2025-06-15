@@ -284,6 +284,7 @@ func (k *KubernetesDeployment) DeployService(ctx context.Context, clientset *kub
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: k.Namespace,
 			Name:      name,
+			Labels:    matchLabels,
 		},
 		Spec: corev1.ServiceSpec{
 			Selector: matchLabels,

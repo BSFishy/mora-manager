@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/BSFishy/mora-manager/router"
+	statepkg "github.com/BSFishy/mora-manager/state"
 	"github.com/BSFishy/mora-manager/util"
 )
 
@@ -120,7 +121,7 @@ func (a *App) updateDeploymentConfigHtmxRoute(w http.ResponseWriter, r *http.Req
 			return fmt.Errorf("decoding config: %w", err)
 		}
 
-		var state State
+		var state statepkg.State
 		if d.State != nil {
 			if err := json.Unmarshal(*d.State, &state); err != nil {
 				return fmt.Errorf("decoding state: %w", err)
@@ -137,7 +138,7 @@ func (a *App) updateDeploymentConfigHtmxRoute(w http.ResponseWriter, r *http.Req
 				return nil
 			}
 
-			state.Configs = append(state.Configs, StateConfig{
+			state.Configs = append(state.Configs, statepkg.StateConfig{
 				ModuleName: moduleName,
 				Name:       identifier,
 				Value:      value,

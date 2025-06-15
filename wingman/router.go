@@ -15,7 +15,7 @@ func Start(wingman Wingman) {
 
 	r := router.NewRouter()
 
-	r.HandleGet("/api/v1/config-point", router.ErrorHandlerFunc(a.handleConfigPoints))
+	r.HandlePost("/api/v1/config-point", router.ErrorHandlerFunc(a.handleConfigPoints))
 
 	r.ListenAndServe(":8080")
 }

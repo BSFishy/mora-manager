@@ -3,12 +3,14 @@ package main
 import (
 	"errors"
 	"sync"
+
+	"github.com/BSFishy/mora-manager/state"
 )
 
 type FunctionContext struct {
 	Registry   *FunctionRegistry
 	Config     *Config
-	State      *State
+	State      *state.State
 	ModuleName string
 }
 
