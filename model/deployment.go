@@ -149,6 +149,20 @@ func (d *Deployment) UpdateState(ctx context.Context, tx *sql.Tx, state any) err
 	return nil
 }
 
+func (d *Deployment) UpdateConfig(ctx context.Context, tx *sql.Tx, config any) error {
+	configBlob, err := json.Marshal(config)
+	if err != nil {
+		return fmt.Errorf("encoding config: %w", err)
+	}
+
+	_, err = tx.ExecContext(ctx, "UPDATE deployments SET config = $1, updated_at = now() WHERE id = $2", configBlob, d.Id)
+	if err != nil {
+		return fmt.Errorf("updating database: %w", err)
+	}
+
+	return nil
+}
+
 func (d *Deployment) UpdateStateAndStatus(ctx context.Context, tx *sql.Tx, status DeploymentStatus, state any) error {
 	stateBlob, err := json.Marshal(state)
 	if err != nil {

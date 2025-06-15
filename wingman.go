@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/BSFishy/mora-manager/state"
-	"github.com/BSFishy/mora-manager/util"
 	"github.com/BSFishy/mora-manager/wingman"
 	k8serror "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -85,9 +84,10 @@ func (r *RunwayWingman) request(method, url string, body []byte) (*http.Response
 	return nil, err
 }
 
-func (r *RunwayWingman) GetConfigPoints(ctx context.Context, state state.State) ([]wingman.ConfigPoint, error) {
+func (r *RunwayWingman) GetConfigPoints(ctx context.Context, moduleName string, state state.State) ([]wingman.ConfigPoint, error) {
 	bodyData := wingman.GetConfigPointsRequest{
-		State: state,
+		ModuleName: moduleName,
+		State:      state,
 	}
 
 	body, err := json.Marshal(bodyData)
@@ -101,11 +101,9 @@ func (r *RunwayWingman) GetConfigPoints(ctx context.Context, state state.State) 
 	}
 
 	var data wingman.GetConfigPointsResponse
-	if err = json.NewDecoder(resp.Body).Decode(&bodyData); err != nil {
+	if err = json.NewDecoder(resp.Body).Decode(&data); err != nil {
 		return nil, fmt.Errorf("decoding body: %w", err)
 	}
-
-	util.LogFromCtx(ctx).Info("here 2", "data", data)
 
 	return data.ConfigPoints, nil
 }

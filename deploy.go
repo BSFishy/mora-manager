@@ -114,14 +114,38 @@ func (a *App) deploy(d *model.Deployment) {
 				}
 
 				if rwm != nil {
-					cfp, err := rwm.GetConfigPoints(ctx, state)
+					cfp, err := rwm.GetConfigPoints(ctx, service.ModuleName, state)
 					if err != nil {
 						return fmt.Errorf("getting wingman config points: %w", err)
 					}
 
-					logger.Info("here", "cfp", cfp)
+					for _, point := range cfp {
+						var description *Expression
+						if point.Description != nil {
+							description = &Expression{
+								Atom: &Atom{
+									String: point.Description,
+								},
+							}
+						}
+
+						config.Configs = append(config.Configs, ModuleConfig{
+							ModuleName: service.ModuleName,
+							Identifier: point.Identifier,
+							Name: Expression{
+								Atom: &Atom{
+									String: &point.Name,
+								},
+							},
+							Description: description,
+						})
+					}
 
 					if len(cfp) > 0 {
+						if err = d.UpdateConfig(ctx, tx, config); err != nil {
+							return fmt.Errorf("updating config: %w", err)
+						}
+
 						if err = d.UpdateStateAndStatus(ctx, tx, model.Waiting, state); err != nil {
 							return fmt.Errorf("updating state: %w", err)
 						}

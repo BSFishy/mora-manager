@@ -9,7 +9,8 @@ import (
 )
 
 type GetConfigPointsRequest struct {
-	State state.State
+	ModuleName string
+	State      state.State
 }
 
 type GetConfigPointsResponse struct {
@@ -23,6 +24,8 @@ func (a *app) handleConfigPoints(w http.ResponseWriter, r *http.Request) error {
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		return fmt.Errorf("decoding body: %w", err)
 	}
+
+	ctx = withModule(ctx, body.ModuleName)
 
 	configPoints, err := a.wingman.GetConfigPoints(ctx, body.State)
 	if err != nil {

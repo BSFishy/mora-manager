@@ -235,7 +235,7 @@ func main() {
 				}
 
 				if wm != nil {
-					cfp, err := wm.GetConfigPoints(ctx, state)
+					cfp, err := wm.GetConfigPoints(ctx, service.ModuleName, state)
 					if err != nil {
 						return fmt.Errorf("getting wingman config points: %w", err)
 					}
