@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"sync"
 
@@ -17,8 +18,8 @@ type FunctionContext struct {
 type ExpressionFunction struct {
 	MinArgs         int
 	MaxArgs         int // -1 for unlimited
-	Evaluate        func(FunctionContext, Args) (*ReturnType, error)
-	GetConfigPoints func(FunctionContext, Args) ([]ConfigPoint, error)
+	Evaluate        func(context.Context, Args) (*ReturnType, error)
+	GetConfigPoints func(context.Context, Args) ([]ConfigPoint, error)
 }
 
 func (e *ExpressionFunction) InvalidArgs(args Args) bool {
@@ -118,7 +119,7 @@ func (a Args) Len() int {
 	return len(a)
 }
 
-func (a Args) Identifier(ctx FunctionContext, i int) (string, error) {
+func (a Args) Identifier(ctx context.Context, i int) (string, error) {
 	if i >= len(a) {
 		return "", errors.New("argument index out of range")
 	}
@@ -127,7 +128,7 @@ func (a Args) Identifier(ctx FunctionContext, i int) (string, error) {
 	return expr.EvaluateIdentifier(ctx)
 }
 
-func (a Args) String(ctx FunctionContext, i int) (string, error) {
+func (a Args) String(ctx context.Context, i int) (string, error) {
 	if i >= len(a) {
 		return "", errors.New("argument index out of range")
 	}

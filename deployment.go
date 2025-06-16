@@ -183,6 +183,8 @@ func (a *App) deploymentPage(w http.ResponseWriter, r *http.Request) error {
 	ctx := r.Context()
 	user, _ := GetUser(ctx)
 
+	ctx = WithFunctionRegistry(ctx, a.registry)
+
 	params := router.Params(r)
 	id := params["id"]
 
@@ -201,6 +203,8 @@ func (a *App) deploymentPage(w http.ResponseWriter, r *http.Request) error {
 		return fmt.Errorf("getting environment: %w", err)
 	}
 
+	ctx = WithEnvironment(ctx, environment)
+
 	if environment.UserId != user.Id {
 		http.NotFound(w, r)
 		return nil
@@ -213,6 +217,8 @@ func (a *App) deploymentPage(w http.ResponseWriter, r *http.Request) error {
 			return fmt.Errorf("decoding config: %w", err)
 		}
 
+		ctx = WithConfig(ctx, &config)
+
 		var state statepkg.State
 		if deployment.State != nil {
 			if err = json.Unmarshal(*deployment.State, &state); err != nil {
@@ -220,19 +226,15 @@ func (a *App) deploymentPage(w http.ResponseWriter, r *http.Request) error {
 			}
 		}
 
-		fnCtx := FunctionContext{
-			Registry: a.registry,
-			Config:   &config,
-			State:    &state,
-		}
+		ctx = WithState(ctx, &state)
 
 		services := config.Services[state.ServiceIndex:]
 		if len(services) > 0 {
 			service := services[0]
-			moduleFnCtx := fnCtx
-			moduleFnCtx.ModuleName = service.ModuleName
+			ctx := WithModuleName(ctx, service.ModuleName)
+			ctx = WithServiceName(ctx, service.ServiceName)
 
-			points, err := service.FindConfigPoints(moduleFnCtx)
+			points, err := service.FindConfigPoints(ctx)
 			if err != nil {
 				return fmt.Errorf("finding config points: %w", err)
 			}
@@ -247,13 +249,13 @@ func (a *App) deploymentPage(w http.ResponseWriter, r *http.Request) error {
 				}
 			}
 
-			wm, err := a.FindWingman(ctx, user.Username, environment.Slug, service.ModuleName, service.ServiceName)
+			wm, err := a.FindWingman(ctx)
 			if err != nil {
 				return fmt.Errorf("getting wingman: %w", err)
 			}
 
 			if wm != nil {
-				cfp, err := wm.GetConfigPoints(ctx, service.ModuleName, state)
+				cfp, err := wm.GetConfigPoints(ctx)
 				if err != nil {
 					return fmt.Errorf("getting wingman config points: %w", err)
 				}

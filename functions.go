@@ -1,8 +1,11 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
+
+	"github.com/BSFishy/mora-manager/util"
 )
 
 func RegisterConfigFunction(r *FunctionRegistry) {
@@ -14,13 +17,15 @@ func RegisterConfigFunction(r *FunctionRegistry) {
 	})
 }
 
-func evaluateConfigFunction(ctx FunctionContext, args Args) (*ReturnType, error) {
+func evaluateConfigFunction(ctx context.Context, args Args) (*ReturnType, error) {
+	state := util.Has(GetState(ctx))
+
 	moduleName, identifier, err := getConfigNames(ctx, args)
 	if err != nil {
 		return nil, fmt.Errorf("getting config names: %w", err)
 	}
 
-	if config := ctx.State.FindConfig(moduleName, identifier); config != nil {
+	if config := state.FindConfig(moduleName, identifier); config != nil {
 		var (
 			value string
 			ok    bool
@@ -37,29 +42,32 @@ func evaluateConfigFunction(ctx FunctionContext, args Args) (*ReturnType, error)
 	return nil, errors.New("invalid expression")
 }
 
-func getConfigPointsConfigFunction(ctx FunctionContext, args Args) ([]ConfigPoint, error) {
+func getConfigPointsConfigFunction(ctx context.Context, args Args) ([]ConfigPoint, error) {
+	config := util.Has(GetConfig(ctx))
+	state := util.Has(GetState(ctx))
+
 	moduleName, identifier, err := getConfigNames(ctx, args)
 	if err != nil {
 		return nil, fmt.Errorf("getting config names: %w", err)
 	}
 
-	if config := ctx.State.FindConfig(moduleName, identifier); config != nil {
+	if config := state.FindConfig(moduleName, identifier); config != nil {
 		return []ConfigPoint{}, nil
 	}
 
-	config := ctx.Config.FindConfig(moduleName, identifier)
-	if config == nil {
+	cfg := config.FindConfig(moduleName, identifier)
+	if cfg == nil {
 		return nil, errors.New("invalid config name")
 	}
 
-	name, err := config.Name.EvaluateString(ctx)
+	name, err := cfg.Name.EvaluateString(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("getting config name: %w", err)
 	}
 
 	var description *string
-	if config.Description != nil {
-		desc, err := config.Description.EvaluateString(ctx)
+	if cfg.Description != nil {
+		desc, err := cfg.Description.EvaluateString(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("getting description: %w", err)
 		}
@@ -77,7 +85,7 @@ func getConfigPointsConfigFunction(ctx FunctionContext, args Args) ([]ConfigPoin
 	}, nil
 }
 
-func getConfigNames(ctx FunctionContext, args Args) (string, string, error) {
+func getConfigNames(ctx context.Context, args Args) (string, string, error) {
 	var (
 		moduleName string
 		identifier string
@@ -95,7 +103,7 @@ func getConfigNames(ctx FunctionContext, args Args) (string, string, error) {
 			return "", "", fmt.Errorf("evaluating identifier: %w", err)
 		}
 	} else {
-		moduleName = ctx.ModuleName
+		moduleName = util.Has(GetModuleName(ctx))
 		identifier, err = args.Identifier(ctx, 0)
 		if err != nil {
 			return "", "", fmt.Errorf("evaluating identifier: %w", err)

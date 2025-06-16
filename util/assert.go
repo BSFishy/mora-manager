@@ -1,6 +1,7 @@
 package util
 
 import (
+	"fmt"
 	"reflect"
 )
 
@@ -26,4 +27,20 @@ func AssertEnum(msg string, variants ...any) {
 	if notNil != 1 {
 		panic(msg)
 	}
+}
+
+func Must[T any](val T, err error) T {
+	if err != nil {
+		panic(fmt.Errorf("expected no error: %w", err))
+	}
+
+	return val
+}
+
+func Has[T any](val T, ok bool) T {
+	if !ok {
+		panic("expected value to exist")
+	}
+
+	return val
 }

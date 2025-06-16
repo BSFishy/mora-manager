@@ -1,25 +1,12 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 
-	"github.com/BSFishy/mora-manager/model"
 	"github.com/BSFishy/mora-manager/templates"
 	"github.com/BSFishy/mora-manager/util"
 )
-
-const userKey contextKey = "user"
-
-func WithUser(ctx context.Context, user *model.User) context.Context {
-	return context.WithValue(ctx, userKey, user)
-}
-
-func GetUser(ctx context.Context) (*model.User, bool) {
-	user, ok := ctx.Value(userKey).(*model.User)
-	return user, ok
-}
 
 func (a *App) loginMiddleware(handler http.Handler) http.Handler {
 	return util.ErrorHandle(func(w http.ResponseWriter, r *http.Request) error {

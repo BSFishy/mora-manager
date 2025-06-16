@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/BSFishy/mora-manager/state"
+	"github.com/BSFishy/mora-manager/util"
 	"github.com/BSFishy/mora-manager/wingman"
 	k8serror "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -20,14 +20,19 @@ type RunwayWingman struct {
 	Url    string
 }
 
-func (a *App) FindWingman(ctx context.Context, user, environment, module, service string) (*RunwayWingman, error) {
-	namespace := fmt.Sprintf("%s-%s", user, environment)
+func (a *App) FindWingman(ctx context.Context) (*RunwayWingman, error) {
+	user := util.Has(GetUser(ctx))
+	environment := util.Has(GetEnvironment(ctx))
+	moduleName := util.Has(GetModuleName(ctx))
+	serviceName := util.Has(GetServiceName(ctx))
+
+	namespace := fmt.Sprintf("%s-%s", user.Username, environment.Slug)
 	selector := labels.SelectorFromSet(map[string]string{
 		"mora.enabled":     "true",
-		"mora.user":        user,
-		"mora.environment": environment,
-		"mora.module":      module,
-		"mora.service":     service,
+		"mora.user":        user.Username,
+		"mora.environment": environment.Slug,
+		"mora.module":      moduleName,
+		"mora.service":     serviceName,
 		"mora.subservice":  "wingman",
 	})
 
@@ -84,10 +89,13 @@ func (r *RunwayWingman) request(method, url string, body []byte) (*http.Response
 	return nil, err
 }
 
-func (r *RunwayWingman) GetConfigPoints(ctx context.Context, moduleName string, state state.State) ([]wingman.ConfigPoint, error) {
+func (r *RunwayWingman) GetConfigPoints(ctx context.Context) ([]wingman.ConfigPoint, error) {
+	state := util.Has(GetState(ctx))
+	moduleName := util.Has(GetModuleName(ctx))
+
 	bodyData := wingman.GetConfigPointsRequest{
 		ModuleName: moduleName,
-		State:      state,
+		State:      *state,
 	}
 
 	body, err := json.Marshal(bodyData)

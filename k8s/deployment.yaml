@@ -38,6 +38,7 @@ spec:
           image: localhost:5050/runway
           ports:
             - containerPort: 8080
+            - containerPort: 7331
           env:
             - name: MORA_DB_HOST
               value: postgres.mora-dev:5432

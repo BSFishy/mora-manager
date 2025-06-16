@@ -1,8 +1,10 @@
 package main
 
 import (
+	"context"
 	"fmt"
 
+	"github.com/BSFishy/mora-manager/util"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
@@ -120,7 +122,7 @@ type ServiceConfig struct {
 	Wingman *ServiceWingman
 }
 
-func (s *ServiceConfig) FindConfigPoints(ctx FunctionContext) ([]ConfigPoint, error) {
+func (s *ServiceConfig) FindConfigPoints(ctx context.Context) ([]ConfigPoint, error) {
 	configPoints := []ConfigPoint{}
 	image, err := s.Image.GetConfigPoints(ctx)
 	if err != nil {
@@ -141,7 +143,10 @@ func (s *ServiceConfig) FindConfigPoints(ctx FunctionContext) ([]ConfigPoint, er
 	return configPoints, nil
 }
 
-func (s *ServiceConfig) Evaluate(ctx FunctionContext, userName string, environmentName string) (*ServiceDefinition, error) {
+func (s *ServiceConfig) Evaluate(ctx context.Context) (*ServiceDefinition, error) {
+	user := util.Has(GetUser(ctx))
+	environment := util.Has(GetEnvironment(ctx))
+
 	image, err := s.Image.EvaluateString(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("evaluating image: %w", err)
@@ -160,8 +165,8 @@ func (s *ServiceConfig) Evaluate(ctx FunctionContext, userName string, environme
 	}
 
 	return &ServiceDefinition{
-		User:        userName,
-		Environment: environmentName,
+		User:        user.Username,
+		Environment: environment.Slug,
 		Module:      s.ModuleName,
 		Name:        s.ServiceName,
 		Image:       image,

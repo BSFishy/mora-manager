@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -86,7 +87,7 @@ func (l ListExpression) TrivialExpression() *Atom {
 	return e.Atom
 }
 
-func (l ListExpression) GetFunctionName(ctx FunctionContext) (string, error) {
+func (l ListExpression) GetFunctionName(ctx context.Context) (string, error) {
 	if len(l) < 1 {
 		return "", errors.New("invalid empty list expression")
 	}
@@ -103,8 +104,10 @@ type Expression struct {
 	List *ListExpression `json:"list,omitempty"`
 }
 
-func (e *Expression) GetConfigPoints(ctx FunctionContext) ([]ConfigPoint, error) {
+func (e *Expression) GetConfigPoints(ctx context.Context) ([]ConfigPoint, error) {
 	util.AssertEnum("invalid expression", e.Atom, e.List)
+
+	registry := util.Has(GetFunctionRegistry(ctx))
 
 	if e.Atom != nil {
 		return []ConfigPoint{}, nil
@@ -121,7 +124,7 @@ func (e *Expression) GetConfigPoints(ctx FunctionContext) ([]ConfigPoint, error)
 		return nil, fmt.Errorf("getting function name: %w", err)
 	}
 
-	fn, ok := ctx.Registry.Get(functionName)
+	fn, ok := registry.Get(functionName)
 	if !ok {
 		return nil, errors.New("invalid function")
 	}
@@ -134,8 +137,10 @@ func (e *Expression) GetConfigPoints(ctx FunctionContext) ([]ConfigPoint, error)
 	return fn.GetConfigPoints(ctx, args)
 }
 
-func (e *Expression) EvaluateIdentifier(ctx FunctionContext) (string, error) {
+func (e *Expression) EvaluateIdentifier(ctx context.Context) (string, error) {
 	util.AssertEnum("invalid expression", e.Atom, e.List)
+
+	registry := util.Has(GetFunctionRegistry(ctx))
 
 	if e.Atom != nil {
 		return e.Atom.EvaluateIdentifier()
@@ -151,7 +156,7 @@ func (e *Expression) EvaluateIdentifier(ctx FunctionContext) (string, error) {
 		return "", fmt.Errorf("getting function name: %w", err)
 	}
 
-	fn, ok := ctx.Registry.Get(functionName)
+	fn, ok := registry.Get(functionName)
 	if !ok {
 		return "", errors.New("invalid function")
 	}
@@ -174,8 +179,10 @@ func (e *Expression) EvaluateIdentifier(ctx FunctionContext) (string, error) {
 	return *returnValue, nil
 }
 
-func (e *Expression) EvaluateString(ctx FunctionContext) (string, error) {
+func (e *Expression) EvaluateString(ctx context.Context) (string, error) {
 	util.AssertEnum("invalid expression", e.Atom, e.List)
+
+	registry := util.Has(GetFunctionRegistry(ctx))
 
 	if e.Atom != nil {
 		return e.Atom.EvaluateString()
@@ -191,7 +198,7 @@ func (e *Expression) EvaluateString(ctx FunctionContext) (string, error) {
 		return "", fmt.Errorf("getting function name: %w", err)
 	}
 
-	fn, ok := ctx.Registry.Get(functionName)
+	fn, ok := registry.Get(functionName)
 	if !ok {
 		return "", errors.New("invalid function")
 	}

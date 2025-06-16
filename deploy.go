@@ -22,6 +22,7 @@ func (a *App) deploy(d *model.Deployment) {
 
 	logger = logger.With("deployment", d.Id, "environment", d.EnvironmentId)
 	ctx = util.WithLogger(ctx, logger)
+	ctx = WithFunctionRegistry(ctx, a.registry)
 
 	err := a.db.Transact(ctx, func(tx *sql.Tx) error {
 		err := d.Lock(ctx, tx)
@@ -34,10 +35,14 @@ func (a *App) deploy(d *model.Deployment) {
 			return fmt.Errorf("getting environment: %w", err)
 		}
 
+		ctx = WithEnvironment(ctx, environment)
+
 		user, err := a.db.GetUserById(ctx, environment.UserId)
 		if err != nil {
 			return fmt.Errorf("getting user: %w", err)
 		}
+
+		ctx = WithUser(ctx, user)
 
 		if err = d.Refresh(ctx, tx); err != nil {
 			return fmt.Errorf("refreshing deployment: %w", err)
@@ -56,6 +61,8 @@ func (a *App) deploy(d *model.Deployment) {
 			return fmt.Errorf("decoding config: %w", err)
 		}
 
+		ctx = WithConfig(ctx, &config)
+
 		var state state.State
 		if d.State != nil {
 			if err = json.Unmarshal(*d.State, &state); err != nil {
@@ -63,11 +70,7 @@ func (a *App) deploy(d *model.Deployment) {
 			}
 		}
 
-		fnCtx := FunctionContext{
-			Registry: a.registry,
-			Config:   &config,
-			State:    &state,
-		}
+		ctx = WithState(ctx, &state)
 
 		namespace := fmt.Sprintf("%s-%s", user.Username, environment.Slug)
 		if err = ensureNamespace(ctx, a.clientset, namespace); err != nil {
@@ -79,10 +82,10 @@ func (a *App) deploy(d *model.Deployment) {
 			logger := logger.With("module", service.ModuleName, "service", service.ServiceName)
 			ctx := util.WithLogger(ctx, logger)
 
-			moduleFnCtx := fnCtx
-			moduleFnCtx.ModuleName = service.ModuleName
+			ctx = WithModuleName(ctx, service.ModuleName)
+			ctx = WithServiceName(ctx, service.ServiceName)
 
-			configPoints, err := service.FindConfigPoints(moduleFnCtx)
+			configPoints, err := service.FindConfigPoints(ctx)
 			if err != nil {
 				return fmt.Errorf("finding config points: %w", err)
 			}
@@ -96,7 +99,7 @@ func (a *App) deploy(d *model.Deployment) {
 				return nil
 			}
 
-			def, err := service.Evaluate(moduleFnCtx, user.Username, environment.Slug)
+			def, err := service.Evaluate(ctx)
 			if err != nil {
 				return fmt.Errorf("evaluating service: %w", err)
 			}
@@ -108,13 +111,13 @@ func (a *App) deploy(d *model.Deployment) {
 
 				logger.Info("deployed wingman")
 
-				rwm, err := a.FindWingman(ctx, user.Username, environment.Slug, service.ModuleName, service.ServiceName)
+				rwm, err := a.FindWingman(ctx)
 				if err != nil {
 					return fmt.Errorf("finding wingman: %w", err)
 				}
 
 				if rwm != nil {
-					cfp, err := rwm.GetConfigPoints(ctx, service.ModuleName, state)
+					cfp, err := rwm.GetConfigPoints(ctx)
 					if err != nil {
 						return fmt.Errorf("getting wingman config points: %w", err)
 					}
