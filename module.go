@@ -5,99 +5,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/BSFishy/mora-manager/state"
 	"github.com/BSFishy/mora-manager/util"
 )
-
-type Module struct {
-	Name     string         `json:"name"`
-	Services []Service      `json:"services"`
-	Configs  []ModuleConfig `json:"configs"`
-}
-
-type ModuleConfig struct {
-	// this field doesnt exist on the api but it is useful for passing these
-	// around
-	ModuleName  string
-	Identifier  string
-	Name        Expression
-	Description *Expression
-}
-
-type ApiWingman struct {
-	Image Expression
-}
-
-type Service struct {
-	Name     string       `json:"name"`
-	Image    Expression   `json:"image"`
-	Requires []Expression `json:"requires"`
-	Wingman  *ApiWingman  `json:"wingman,omitempty"`
-}
-
-func (s *Service) RequiredServices() ([]state.ServiceRef, error) {
-	services := []state.ServiceRef{}
-	for _, service := range s.Requires {
-		list := service.List
-		if list == nil {
-			return nil, errors.New("required service is not a list")
-		}
-
-		expr := *list
-		if len(expr) != 3 {
-			return nil, errors.New("requires function call invalid")
-		}
-
-		f := expr[0].asIdentifier()
-		if f == nil {
-			return nil, errors.New("list function is not an identifier")
-		}
-
-		if *f != "service" {
-			return nil, errors.New("requires function is not service")
-		}
-
-		moduleName := expr[1].asIdentifier()
-		if moduleName == nil {
-			return nil, errors.New("service reference module name is not an identifier")
-		}
-
-		serviceName := expr[2].asIdentifier()
-		if serviceName == nil {
-			return nil, errors.New("service reference service name is not an identifier")
-		}
-
-		services = append(services, state.ServiceRef{
-			Module:  *moduleName,
-			Service: *serviceName,
-		})
-	}
-
-	return services, nil
-}
-
-type ListExpression []Expression
-
-func (l ListExpression) TrivialExpression() *Atom {
-	if len(l) != 1 {
-		return nil
-	}
-
-	e := l[0]
-	return e.Atom
-}
-
-func (l ListExpression) GetFunctionName(ctx context.Context) (string, error) {
-	if len(l) < 1 {
-		return "", errors.New("invalid empty list expression")
-	}
-
-	return l[0].EvaluateIdentifier(ctx)
-}
-
-func (l ListExpression) Args() Args {
-	return Args(l[1:])
-}
 
 type Expression struct {
 	Atom *Atom           `json:"atom,omitempty"`
@@ -130,7 +39,7 @@ func (e *Expression) GetConfigPoints(ctx context.Context) ([]ConfigPoint, error)
 	}
 
 	args := list.Args()
-	if fn.InvalidArgs(args) {
+	if fn.IsInvalid(args) {
 		return nil, errors.New("invalid arguments")
 	}
 
@@ -162,7 +71,7 @@ func (e *Expression) EvaluateIdentifier(ctx context.Context) (string, error) {
 	}
 
 	args := list.Args()
-	if fn.InvalidArgs(args) {
+	if fn.IsInvalid(args) {
 		return "", errors.New("invalid arguments")
 	}
 
@@ -204,7 +113,7 @@ func (e *Expression) EvaluateString(ctx context.Context) (string, error) {
 	}
 
 	args := list.Args()
-	if fn.InvalidArgs(args) {
+	if fn.IsInvalid(args) {
 		return "", errors.New("invalid arguments")
 	}
 
@@ -227,6 +136,29 @@ func (e *Expression) asIdentifier() *string {
 	}
 
 	return e.Atom.Identifier
+}
+
+type ListExpression []Expression
+
+func (l ListExpression) TrivialExpression() *Atom {
+	if len(l) != 1 {
+		return nil
+	}
+
+	e := l[0]
+	return e.Atom
+}
+
+func (l ListExpression) GetFunctionName(ctx context.Context) (string, error) {
+	if len(l) < 1 {
+		return "", errors.New("invalid empty list expression")
+	}
+
+	return l[0].EvaluateIdentifier(ctx)
+}
+
+func (l ListExpression) Args() Args {
+	return Args(l[1:])
 }
 
 type Atom struct {

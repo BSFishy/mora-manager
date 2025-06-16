@@ -22,7 +22,7 @@ type ExpressionFunction struct {
 	GetConfigPoints func(context.Context, Args) ([]ConfigPoint, error)
 }
 
-func (e *ExpressionFunction) InvalidArgs(args Args) bool {
+func (e *ExpressionFunction) IsInvalid(args Args) bool {
 	len := args.Len()
 	if e.MinArgs > len {
 		return true

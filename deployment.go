@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -12,6 +13,152 @@ import (
 	"github.com/BSFishy/mora-manager/templates"
 	"github.com/BSFishy/mora-manager/util"
 )
+
+type ApiConfig struct {
+	Modules []Module `json:"modules"`
+}
+
+type Module struct {
+	Name     string         `json:"name"`
+	Services []Service      `json:"services"`
+	Configs  []ModuleConfig `json:"configs"`
+}
+
+type ModuleConfig struct {
+	// this field doesnt exist on the api but it is useful for passing these
+	// around
+	ModuleName  string
+	Identifier  string
+	Name        Expression
+	Description *Expression
+}
+
+type ApiWingman struct {
+	Image Expression
+}
+
+type Service struct {
+	Name     string       `json:"name"`
+	Image    Expression   `json:"image"`
+	Requires []Expression `json:"requires"`
+	Wingman  *ApiWingman  `json:"wingman,omitempty"`
+}
+
+func (s *Service) RequiredServices() ([]statepkg.ServiceRef, error) {
+	services := []statepkg.ServiceRef{}
+	for _, service := range s.Requires {
+		list := service.List
+		if list == nil {
+			return nil, errors.New("required service is not a list")
+		}
+
+		expr := *list
+		if len(expr) != 3 {
+			return nil, errors.New("requires function call invalid")
+		}
+
+		f := expr[0].asIdentifier()
+		if f == nil {
+			return nil, errors.New("list function is not an identifier")
+		}
+
+		if *f != "service" {
+			return nil, errors.New("requires function is not service")
+		}
+
+		moduleName := expr[1].asIdentifier()
+		if moduleName == nil {
+			return nil, errors.New("service reference module name is not an identifier")
+		}
+
+		serviceName := expr[2].asIdentifier()
+		if serviceName == nil {
+			return nil, errors.New("service reference service name is not an identifier")
+		}
+
+		services = append(services, statepkg.ServiceRef{
+			Module:  *moduleName,
+			Service: *serviceName,
+		})
+	}
+
+	return services, nil
+}
+
+func (c *ApiConfig) FlattenConfigs() []ModuleConfig {
+	configs := []ModuleConfig{}
+	for _, module := range c.Modules {
+		for _, config := range module.Configs {
+			config.ModuleName = module.Name
+			configs = append(configs, config)
+		}
+	}
+
+	return configs
+}
+
+func (c *ApiConfig) TopologicalSort() ([]ServiceConfig, error) {
+	services := make(map[string]ServiceConfig)
+	graph := make(map[string][]string)
+	inDegree := make(map[string]int)
+
+	for _, module := range c.Modules {
+		for _, service := range module.Services {
+			path := fmt.Sprintf("%s/%s", module.Name, service.Name)
+			requires, err := service.RequiredServices()
+			if err != nil {
+				return nil, fmt.Errorf("getting required services: %w", err)
+			}
+
+			var wingman *ServiceWingman
+			if service.Wingman != nil {
+				wingman = &ServiceWingman{
+					Image: service.Wingman.Image,
+				}
+			}
+
+			services[path] = ServiceConfig{
+				ModuleName:  module.Name,
+				ServiceName: service.Name,
+				Image:       service.Image,
+				Wingman:     wingman,
+			}
+
+			for _, dep := range requires {
+				depPath := fmt.Sprintf("%s/%s", dep.Module, dep.Service)
+				graph[depPath] = append(graph[depPath], path)
+				inDegree[path]++
+			}
+
+			if _, ok := inDegree[path]; !ok {
+				inDegree[path] = 0
+			}
+		}
+	}
+
+	var queue []string
+	for path, deg := range inDegree {
+		if deg == 0 {
+			queue = append(queue, path)
+		}
+	}
+
+	var result []ServiceConfig
+	for len(queue) > 0 {
+		cur := queue[0]
+		queue = queue[1:]
+		result = append(result, services[cur])
+
+		for _, neighbor := range graph[cur] {
+			inDegree[neighbor]--
+			if inDegree[neighbor] == 0 {
+				queue = append(queue, neighbor)
+			}
+		}
+	}
+
+	return result, nil
+}
 
 type DeploymentResponse struct {
 	Id string `json:"id"`
