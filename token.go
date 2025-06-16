@@ -110,3 +110,17 @@ func (a *App) apiMiddleware(handler http.Handler) http.Handler {
 		return nil
 	})
 }
+
+func (a *App) tokenPage(w http.ResponseWriter, r *http.Request) error {
+	ctx := r.Context()
+	user, _ := GetUser(ctx)
+
+	tokens, err := a.getTokenIds(ctx, user.Id)
+	if err != nil {
+		return fmt.Errorf("getting tokens: %w", err)
+	}
+
+	return templates.Tokens(templates.TokensProps{
+		Tokens: tokens,
+	}).Render(ctx, w)
+}

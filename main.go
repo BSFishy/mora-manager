@@ -3,14 +3,12 @@ package main
 import (
 	"context"
 	"embed"
-	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
 
 	"github.com/BSFishy/mora-manager/model"
 	"github.com/BSFishy/mora-manager/router"
-	"github.com/BSFishy/mora-manager/state"
 	"github.com/BSFishy/mora-manager/templates"
 	"github.com/a-h/templ"
 	"k8s.io/client-go/kubernetes"
@@ -74,7 +72,6 @@ func main() {
 	SetupLogger()
 
 	app := NewApp()
-
 	r := router.NewRouter()
 
 	r.RouteFunc("/api", func(r *router.Router) {
@@ -109,23 +106,7 @@ func main() {
 		})
 
 		r.RouteFunc("/deployment", func(r *router.Router) {
-			r.Use(app.userProtected).HandleGet("/", router.ErrorHandlerFunc(func(w http.ResponseWriter, r *http.Request) error {
-				ctx := r.Context()
-				user, _ := GetUser(ctx)
-
-				environments, err := app.db.GetUserEnvironments(ctx, user.Id)
-				if err != nil {
-					return fmt.Errorf("getting environments: %w", err)
-				}
-
-				deployments, err := app.db.GetDeployments(ctx, environments)
-				if err != nil {
-					return fmt.Errorf("getting deployments: %w", err)
-				}
-
-				return templates.DashboardDeployments(environments, deployments).Render(ctx, w)
-			}))
-
+			r.Use(app.userProtected).HandleGet("/", router.ErrorHandlerFunc(app.deploymentHtmxRoute))
 			r.Use(app.userProtected).HandlePost("/:id/config", router.ErrorHandlerFunc(app.updateDeploymentConfigHtmxRoute))
 		})
 
@@ -140,135 +121,11 @@ func main() {
 	})
 
 	r.Use(app.loginMiddleware).HandleGet("/login", templ.Handler(templates.Login()))
-	r.Use(app.userProtected).HandleGet("/dashboard", router.ErrorHandlerFunc(func(w http.ResponseWriter, r *http.Request) error {
-		ctx := r.Context()
-		user, _ := GetUser(ctx)
+	r.Use(app.userProtected).HandleGet("/dashboard", router.ErrorHandlerFunc(app.dashboardPage))
 
-		environments, err := app.db.GetUserEnvironments(ctx, user.Id)
-		if err != nil {
-			return fmt.Errorf("getting environments: %w", err)
-		}
-
-		deployments, err := app.db.GetDeployments(ctx, environments)
-		if err != nil {
-			return fmt.Errorf("getting deployments: %w", err)
-		}
-
-		return templates.Dashboard(templates.DashboardProps{
-			User:         user,
-			Environments: environments,
-			Deployments:  deployments,
-		}).Render(ctx, w)
-	}))
-
-	r.Use(app.userProtected).HandleGet("/deployment/:id", router.ErrorHandlerFunc(func(w http.ResponseWriter, r *http.Request) error {
-		ctx := r.Context()
-		user, _ := GetUser(ctx)
-
-		params := router.Params(r)
-		id := params["id"]
-
-		deployment, err := app.db.GetDeployment(ctx, id)
-		if err != nil {
-			return fmt.Errorf("getting deployment: %w", err)
-		}
-
-		if deployment == nil {
-			http.NotFound(w, r)
-			return nil
-		}
-
-		environment, err := app.db.GetEnvironment(ctx, deployment.EnvironmentId)
-		if err != nil {
-			return fmt.Errorf("getting environment: %w", err)
-		}
-
-		if environment.UserId != user.Id {
-			http.NotFound(w, r)
-			return nil
-		}
-
-		var configPoints []templates.ConfigPoint
-		if deployment.Status == model.Waiting {
-			var config Config
-			if err = json.Unmarshal(deployment.Config, &config); err != nil {
-				return fmt.Errorf("decoding config: %w", err)
-			}
-
-			var state state.State
-			if deployment.State != nil {
-				if err = json.Unmarshal(*deployment.State, &state); err != nil {
-					return fmt.Errorf("decoding state: %w", err)
-				}
-			}
-
-			fnCtx := FunctionContext{
-				Registry: app.registry,
-				Config:   &config,
-				State:    &state,
-			}
-
-			services := config.Services[state.ServiceIndex:]
-			if len(services) > 0 {
-				service := services[0]
-				moduleFnCtx := fnCtx
-				moduleFnCtx.ModuleName = service.ModuleName
-
-				points, err := service.FindConfigPoints(moduleFnCtx)
-				if err != nil {
-					return fmt.Errorf("finding config points: %w", err)
-				}
-
-				configPoints = make([]templates.ConfigPoint, len(points))
-				for i, point := range points {
-					configPoints[i] = templates.ConfigPoint{
-						ModuleName:  point.ModuleName,
-						Identifier:  point.Identifier,
-						Name:        point.Name,
-						Description: point.Description,
-					}
-				}
-
-				wm, err := app.FindWingman(ctx, user.Username, environment.Slug, service.ModuleName, service.ServiceName)
-				if err != nil {
-					return fmt.Errorf("getting wingman: %w", err)
-				}
-
-				if wm != nil {
-					cfp, err := wm.GetConfigPoints(ctx, service.ModuleName, state)
-					if err != nil {
-						return fmt.Errorf("getting wingman config points: %w", err)
-					}
-
-					for _, point := range cfp {
-						configPoints = append(configPoints, templates.ConfigPoint{
-							ModuleName:  service.ModuleName,
-							Identifier:  point.Identifier,
-							Name:        point.Name,
-							Description: point.Description,
-						})
-					}
-				}
-			}
-		}
-
-		return templates.Deployment(deployment.Id, configPoints).Render(ctx, w)
-	}))
-
+	r.Use(app.userProtected).HandleGet("/deployment/:id", router.ErrorHandlerFunc(app.deploymentPage))
 	r.Use(app.userProtected).HandleGet("/environment", templ.Handler(templates.CreateEnvironment()))
-	r.Use(app.userProtected).HandleGet("/tokens", router.ErrorHandlerFunc(func(w http.ResponseWriter, r *http.Request) error {
-		ctx := r.Context()
-		user, _ := GetUser(ctx)
-
-		tokens, err := app.getTokenIds(ctx, user.Id)
-		if err != nil {
-			return fmt.Errorf("getting tokens: %w", err)
-		}
-
-		return templates.Tokens(templates.TokensProps{
-			Tokens: tokens,
-		}).Render(ctx, w)
-	}))
+	r.Use(app.userProtected).HandleGet("/tokens", router.ErrorHandlerFunc(app.tokenPage))
 
 	r.RouteFunc("/setup", func(r *router.Router) {
 		r.Use(app.secretMiddleware).HandleGet("/secret", templ.Handler(templates.Secret()))
