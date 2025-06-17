@@ -20,7 +20,7 @@ type RunwayWingman struct {
 	Url    string
 }
 
-func (a *App) FindWingman(ctx context.Context) (*RunwayWingman, error) {
+func (a *App) FindWingman(ctx context.Context) (wingman.Wingman, error) {
 	user := util.Has(GetUser(ctx))
 	environment := util.Has(GetEnvironment(ctx))
 	moduleName := util.Has(GetModuleName(ctx))

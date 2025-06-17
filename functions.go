@@ -6,80 +6,90 @@ import (
 	"fmt"
 
 	"github.com/BSFishy/mora-manager/util"
+	"github.com/BSFishy/mora-manager/value"
 )
 
-func RegisterConfigFunction(r *FunctionRegistry) {
+func RegisterDefaultFunctions(r *FunctionRegistry) {
 	r.Register("config", ExpressionFunction{
-		MinArgs:         1,
-		MaxArgs:         2,
-		Evaluate:        evaluateConfigFunction,
-		GetConfigPoints: getConfigPointsConfigFunction,
+		MinArgs:  1,
+		MaxArgs:  2,
+		Evaluate: evaluateConfigFunction,
+	})
+
+	r.Register("service", ExpressionFunction{
+		MinArgs: 2,
+		MaxArgs: 2,
+		Evaluate: func(ctx context.Context, args Args) (value.Value, []ConfigPoint, error) {
+			moduleName, err := args.Identifier(ctx, 0)
+			if err != nil {
+				return nil, nil, err
+			}
+
+			serviceName, err := args.Identifier(ctx, 1)
+			if err != nil {
+				return nil, nil, err
+			}
+
+			return value.NewServiceReference(moduleName, serviceName), nil, nil
+		},
 	})
 }
 
-func evaluateConfigFunction(ctx context.Context, args Args) (*ReturnType, error) {
-	state := util.Has(GetState(ctx))
-
+func evaluateConfigFunction(ctx context.Context, args Args) (value.Value, []ConfigPoint, error) {
 	moduleName, identifier, err := getConfigNames(ctx, args)
 	if err != nil {
-		return nil, fmt.Errorf("getting config names: %w", err)
+		return nil, nil, err
 	}
 
-	if config := state.FindConfig(moduleName, identifier); config != nil {
-		var (
-			value string
-			ok    bool
-		)
-
-		if value, ok = config.Value.(string); !ok {
-			panic("config string is not a string")
-		}
-
-		returnValue := NewString(value)
-		return &returnValue, nil
+	state := util.Has(GetState(ctx))
+	cfg := state.FindConfig(moduleName, identifier)
+	if cfg != nil {
+		return value.NewString(cfg.Value), []ConfigPoint{}, nil
 	}
 
-	return nil, errors.New("invalid expression")
-}
-
-func getConfigPointsConfigFunction(ctx context.Context, args Args) ([]ConfigPoint, error) {
 	config := util.Has(GetConfig(ctx))
-	state := util.Has(GetState(ctx))
+	c := config.FindConfig(moduleName, identifier)
+	if c == nil {
+		return nil, nil, fmt.Errorf("invalid config reference: (config %s %s)", moduleName, identifier)
+	}
 
-	moduleName, identifier, err := getConfigNames(ctx, args)
+	n, cfp, err := c.Name.Evaluate(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("getting config names: %w", err)
+		return nil, nil, err
 	}
 
-	if config := state.FindConfig(moduleName, identifier); config != nil {
-		return []ConfigPoint{}, nil
+	if len(cfp) > 0 {
+		return value.NewNull(), cfp, nil
 	}
 
-	cfg := config.FindConfig(moduleName, identifier)
-	if cfg == nil {
-		return nil, errors.New("invalid config name")
-	}
-
-	name, err := cfg.Name.EvaluateString(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("getting config name: %w", err)
+	if n.Kind() != value.String {
+		return nil, nil, errors.New("expected string")
 	}
 
 	var description *string
-	if cfg.Description != nil {
-		desc, err := cfg.Description.EvaluateString(ctx)
+	if c.Description != nil {
+		v, cfp, err := c.Description.Evaluate(ctx)
 		if err != nil {
-			return nil, fmt.Errorf("getting description: %w", err)
+			return nil, nil, err
 		}
 
-		description = &desc
+		if len(cfp) > 0 {
+			return value.NewNull(), cfp, nil
+		}
+
+		if v.Kind() != value.String {
+			return nil, nil, errors.New("expected string")
+		}
+
+		str := v.String()
+		description = &str
 	}
 
-	return []ConfigPoint{
+	return value.NewNull(), []ConfigPoint{
 		{
 			ModuleName:  moduleName,
 			Identifier:  identifier,
-			Name:        name,
+			Name:        n.String(),
 			Description: description,
 		},
 	}, nil

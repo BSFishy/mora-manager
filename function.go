@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/BSFishy/mora-manager/state"
+	"github.com/BSFishy/mora-manager/value"
 )
 
 type FunctionContext struct {
@@ -16,10 +17,9 @@ type FunctionContext struct {
 }
 
 type ExpressionFunction struct {
-	MinArgs         int
-	MaxArgs         int // -1 for unlimited
-	Evaluate        func(context.Context, Args) (*ReturnType, error)
-	GetConfigPoints func(context.Context, Args) ([]ConfigPoint, error)
+	MinArgs  int
+	MaxArgs  int // -1 for unlimited
+	Evaluate func(context.Context, Args) (value.Value, []ConfigPoint, error)
 }
 
 func (e *ExpressionFunction) IsInvalid(args Args) bool {
@@ -33,58 +33,6 @@ func (e *ExpressionFunction) IsInvalid(args Args) bool {
 	}
 
 	return false
-}
-
-type TypeEnum int
-
-const (
-	Identifier TypeEnum = iota
-	String
-)
-
-type ReturnType struct {
-	Type  TypeEnum
-	Value any
-}
-
-func NewIdentifier(value string) ReturnType {
-	return ReturnType{
-		Type:  Identifier,
-		Value: value,
-	}
-}
-
-func NewString(value string) ReturnType {
-	return ReturnType{
-		Type:  String,
-		Value: value,
-	}
-}
-
-func (r *ReturnType) Identifier() *string {
-	if r.Type != Identifier {
-		return nil
-	}
-
-	value, ok := r.Value.(string)
-	if !ok {
-		panic("identifier return type is not a string")
-	}
-
-	return &value
-}
-
-func (r *ReturnType) String() *string {
-	if r.Type != String {
-		return nil
-	}
-
-	value, ok := r.Value.(string)
-	if !ok {
-		panic("string return type is not a string")
-	}
-
-	return &value
 }
 
 type FunctionRegistry struct {
@@ -119,20 +67,27 @@ func (a Args) Len() int {
 	return len(a)
 }
 
-func (a Args) Identifier(ctx context.Context, i int) (string, error) {
+func (a Args) Evaluate(ctx context.Context, i int) (value.Value, []ConfigPoint, error) {
 	if i >= len(a) {
-		return "", errors.New("argument index out of range")
+		return value.NewNull(), []ConfigPoint{}, nil
 	}
 
-	expr := a[i]
-	return expr.EvaluateIdentifier(ctx)
+	return a[i].Evaluate(ctx)
 }
 
-func (a Args) String(ctx context.Context, i int) (string, error) {
-	if i >= len(a) {
-		return "", errors.New("argument index out of range")
+func (a Args) Identifier(ctx context.Context, i int) (string, error) {
+	v, cfp, err := a.Evaluate(ctx, i)
+	if err != nil {
+		return "", err
 	}
 
-	expr := a[i]
-	return expr.EvaluateString(ctx)
+	if len(cfp) > 0 {
+		return "", errors.New("unexpected configuration point")
+	}
+
+	if v.Kind() != value.Identifier {
+		return "", errors.New("expected identifier")
+	}
+
+	return v.String(), nil
 }

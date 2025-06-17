@@ -58,7 +58,7 @@ func NewApp() App {
 	}
 
 	registry := NewFunctionRegistry()
-	RegisterConfigFunction(registry)
+	RegisterDefaultFunctions(registry)
 
 	return App{
 		clientset: clientset,

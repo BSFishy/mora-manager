@@ -2,8 +2,6 @@ package wingman
 
 import (
 	"context"
-
-	"github.com/BSFishy/mora-manager/state"
 )
 
 type ConfigPoint struct {
@@ -13,5 +11,5 @@ type ConfigPoint struct {
 }
 
 type Wingman interface {
-	GetConfigPoints(context.Context, state.State) ([]ConfigPoint, error)
+	GetConfigPoints(context.Context) ([]ConfigPoint, error)
 }

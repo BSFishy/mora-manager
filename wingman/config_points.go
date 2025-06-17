@@ -26,8 +26,9 @@ func (a *app) handleConfigPoints(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	ctx = withModule(ctx, body.ModuleName)
+	ctx = withState(ctx, body.State)
 
-	configPoints, err := a.wingman.GetConfigPoints(ctx, body.State)
+	configPoints, err := a.wingman.GetConfigPoints(ctx)
 	if err != nil {
 		return fmt.Errorf("getting config points: %w", err)
 	}

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -12,6 +13,7 @@ import (
 	statepkg "github.com/BSFishy/mora-manager/state"
 	"github.com/BSFishy/mora-manager/templates"
 	"github.com/BSFishy/mora-manager/util"
+	"github.com/BSFishy/mora-manager/value"
 )
 
 type ApiConfig struct {
@@ -44,41 +46,27 @@ type Service struct {
 	Wingman  *ApiWingman  `json:"wingman,omitempty"`
 }
 
-func (s *Service) RequiredServices() ([]statepkg.ServiceRef, error) {
+func (s *Service) RequiredServices(ctx context.Context) ([]statepkg.ServiceRef, error) {
 	services := []statepkg.ServiceRef{}
 	for _, service := range s.Requires {
-		list := service.List
-		if list == nil {
-			return nil, errors.New("required service is not a list")
+		v, cfp, err := service.Evaluate(ctx)
+		if err != nil {
+			return nil, err
 		}
 
-		expr := *list
-		if len(expr) != 3 {
-			return nil, errors.New("requires function call invalid")
+		if len(cfp) > 0 {
+			return nil, errors.New("unexpected configurable value")
 		}
 
-		f := expr[0].asIdentifier()
-		if f == nil {
-			return nil, errors.New("list function is not an identifier")
+		ref, ok := v.(value.ServiceReferenceValue)
+		if !ok {
+			return nil, errors.New("invalid requires value")
 		}
 
-		if *f != "service" {
-			return nil, errors.New("requires function is not service")
-		}
-
-		moduleName := expr[1].asIdentifier()
-		if moduleName == nil {
-			return nil, errors.New("service reference module name is not an identifier")
-		}
-
-		serviceName := expr[2].asIdentifier()
-		if serviceName == nil {
-			return nil, errors.New("service reference service name is not an identifier")
-		}
-
+		// TODO: can i just use value.ServiceReferenceValue here?
 		services = append(services, statepkg.ServiceRef{
-			Module:  *moduleName,
-			Service: *serviceName,
+			Module:  ref.ModuleName,
+			Service: ref.ServiceName,
 		})
 	}
 
@@ -97,7 +85,7 @@ func (c *ApiConfig) FlattenConfigs() []ModuleConfig {
 	return configs
 }
 
-func (c *ApiConfig) TopologicalSort() ([]ServiceConfig, error) {
+func (c *ApiConfig) TopologicalSort(ctx context.Context) ([]ServiceConfig, error) {
 	services := make(map[string]ServiceConfig)
 	graph := make(map[string][]string)
 	inDegree := make(map[string]int)
@@ -105,7 +93,7 @@ func (c *ApiConfig) TopologicalSort() ([]ServiceConfig, error) {
 	for _, module := range c.Modules {
 		for _, service := range module.Services {
 			path := fmt.Sprintf("%s/%s", module.Name, service.Name)
-			requires, err := service.RequiredServices()
+			requires, err := service.RequiredServices(ctx)
 			if err != nil {
 				return nil, fmt.Errorf("getting required services: %w", err)
 			}
@@ -174,6 +162,8 @@ func (a *App) createDeployment(w http.ResponseWriter, req *http.Request) error {
 	ctx := req.Context()
 	user, _ := GetUser(ctx)
 
+	ctx = WithFunctionRegistry(ctx, a.registry)
+
 	params := router.Params(req)
 	environmentSlug := params["slug"]
 
@@ -187,11 +177,17 @@ func (a *App) createDeployment(w http.ResponseWriter, req *http.Request) error {
 		return nil
 	}
 
+	ctx = WithEnvironment(ctx, environment)
+
 	if err = environment.CancelInProgressDeployments(ctx, a.db); err != nil {
 		return fmt.Errorf("cancelling deployments: %w", err)
 	}
 
-	services, err := config.TopologicalSort()
+	// at this point, we shouldnt be actually referencing any configuration or
+	// state related things, so this should be fine even though the state and
+	// config structures are not in the context. might want to look into just
+	// returning empty values for these for safety?
+	services, err := config.TopologicalSort(ctx)
 	if err != nil {
 		return fmt.Errorf("sorting services: %w", err)
 	}
@@ -297,7 +293,7 @@ func (a *App) updateDeploymentConfigHtmxRoute(w http.ResponseWriter, r *http.Req
 		for i := range moduleNames {
 			moduleName := moduleNames[i]
 			identifier := identifiers[i]
-			value := values[i]
+			v := values[i]
 
 			if cfg := config.FindConfig(moduleName, identifier); cfg == nil {
 				w.WriteHeader(http.StatusBadRequest)
@@ -307,7 +303,7 @@ func (a *App) updateDeploymentConfigHtmxRoute(w http.ResponseWriter, r *http.Req
 			state.Configs = append(state.Configs, statepkg.StateConfig{
 				ModuleName: moduleName,
 				Name:       identifier,
-				Value:      value,
+				Value:      v,
 			})
 		}
 
@@ -381,13 +377,13 @@ func (a *App) deploymentPage(w http.ResponseWriter, r *http.Request) error {
 			ctx := WithModuleName(ctx, service.ModuleName)
 			ctx = WithServiceName(ctx, service.ServiceName)
 
-			points, err := service.FindConfigPoints(ctx)
+			_, cfp, err := service.Evaluate(ctx)
 			if err != nil {
-				return fmt.Errorf("finding config points: %w", err)
+				return fmt.Errorf("evaluating service: %w", err)
 			}
 
-			configPoints = make([]templates.ConfigPoint, len(points))
-			for i, point := range points {
+			configPoints = make([]templates.ConfigPoint, len(cfp))
+			for i, point := range cfp {
 				configPoints[i] = templates.ConfigPoint{
 					ModuleName:  point.ModuleName,
 					Identifier:  point.Identifier,

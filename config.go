@@ -2,9 +2,11 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/BSFishy/mora-manager/util"
+	"github.com/BSFishy/mora-manager/value"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
@@ -43,46 +45,43 @@ type ServiceConfig struct {
 	Wingman *ServiceWingman
 }
 
-func (s *ServiceConfig) FindConfigPoints(ctx context.Context) ([]ConfigPoint, error) {
-	configPoints := []ConfigPoint{}
-	image, err := s.Image.GetConfigPoints(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("getting image config points: %w", err)
-	}
-
-	configPoints = append(configPoints, image...)
-
-	if s.Wingman != nil {
-		wingmanImage, err := s.Wingman.Image.GetConfigPoints(ctx)
-		if err != nil {
-			return nil, fmt.Errorf("getting wingman image config points: %w", err)
-		}
-
-		configPoints = append(configPoints, wingmanImage...)
-	}
-
-	return configPoints, nil
-}
-
-func (s *ServiceConfig) Evaluate(ctx context.Context) (*ServiceDefinition, error) {
+func (s *ServiceConfig) Evaluate(ctx context.Context) (*ServiceDefinition, []ConfigPoint, error) {
 	user := util.Has(GetUser(ctx))
 	environment := util.Has(GetEnvironment(ctx))
 
-	image, err := s.Image.EvaluateString(ctx)
+	configPoints := []ConfigPoint{}
+
+	image, imageCfp, err := s.Image.Evaluate(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("evaluating image: %w", err)
+		return nil, nil, fmt.Errorf("evaluating image: %w", err)
 	}
+
+	if image.Kind() != value.String {
+		return nil, nil, errors.New("invalid image property")
+	}
+
+	configPoints = append(configPoints, imageCfp...)
 
 	var wingman *WingmanDefinition
 	if s.Wingman != nil {
-		wingmanImage, err := s.Wingman.Image.EvaluateString(ctx)
+		wingmanImage, wingmanImageCfp, err := s.Wingman.Image.Evaluate(ctx)
 		if err != nil {
-			return nil, fmt.Errorf("evaluating wingman image: %w", err)
+			return nil, nil, fmt.Errorf("evaluating wingman image: %w", err)
 		}
 
-		wingman = &WingmanDefinition{
-			Image: wingmanImage,
+		if wingmanImage.Kind() != value.String {
+			return nil, nil, errors.New("invalid wingman image property")
 		}
+
+		configPoints = append(configPoints, wingmanImageCfp...)
+
+		wingman = &WingmanDefinition{
+			Image: wingmanImage.String(),
+		}
+	}
+
+	if len(configPoints) > 0 {
+		return nil, configPoints, nil
 	}
 
 	return &ServiceDefinition{
@@ -90,10 +89,10 @@ func (s *ServiceConfig) Evaluate(ctx context.Context) (*ServiceDefinition, error
 		Environment: environment.Slug,
 		Module:      s.ModuleName,
 		Name:        s.ServiceName,
-		Image:       image,
+		Image:       image.String(),
 
 		Wingman: wingman,
-	}, nil
+	}, configPoints, nil
 }
 
 type WingmanDefinition struct {

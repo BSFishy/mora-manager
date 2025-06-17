@@ -5,15 +5,17 @@ type State struct {
 	ServiceIndex int
 }
 
+// TODO: just use value.ServiceReferenceValue?
 type ServiceRef struct {
 	Module  string
 	Service string
 }
 
+// TODO: this structure sucks. it needs to be changed to something more useful
 type StateConfig struct {
 	ModuleName string
 	Name       string
-	Value      any
+	Value      string
 }
 
 func (s *State) FindConfig(moduleName, name string) *StateConfig {

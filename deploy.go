@@ -85,9 +85,9 @@ func (a *App) deploy(d *model.Deployment) {
 			ctx = WithModuleName(ctx, service.ModuleName)
 			ctx = WithServiceName(ctx, service.ServiceName)
 
-			configPoints, err := service.FindConfigPoints(ctx)
+			def, configPoints, err := service.Evaluate(ctx)
 			if err != nil {
-				return fmt.Errorf("finding config points: %w", err)
+				return fmt.Errorf("evaluating service: %w", err)
 			}
 
 			if len(configPoints) > 0 {
@@ -97,11 +97,6 @@ func (a *App) deploy(d *model.Deployment) {
 
 				logger.Info("waiting for dynamic config")
 				return nil
-			}
-
-			def, err := service.Evaluate(ctx)
-			if err != nil {
-				return fmt.Errorf("evaluating service: %w", err)
 			}
 
 			if wm := def.WingmanDeployment(namespace); wm != nil {
