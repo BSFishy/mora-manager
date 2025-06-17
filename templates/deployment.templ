@@ -1,16 +1,12 @@
 package templates
 
-import "github.com/BSFishy/mora-manager/templates/styles"
-import "fmt"
+import (
+	"fmt"
+	"github.com/BSFishy/mora-manager/templates/styles"
+	"github.com/BSFishy/mora-manager/value"
+)
 
-type ConfigPoint struct {
-	ModuleName  string
-	Identifier  string
-	Name        string
-	Description *string
-}
-
-templ Deployment(id string, configPoints []ConfigPoint) {
+templ Deployment(id string, configPoints []value.ConfigPoint) {
 	@layout("Deployment") {
 		<div
 			class={ styles.W("100vw"), styles.Minh("100vh"), styles.Flex(), styles.FlexCol(), styles.Align("center"), styles.Justify("center"), styles.Gap(2) }

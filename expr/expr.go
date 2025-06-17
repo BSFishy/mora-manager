@@ -1,4 +1,4 @@
-package main
+package expr
 
 import (
 	"context"
@@ -15,18 +15,18 @@ type Expression struct {
 	List *ListExpression `json:"list,omitempty"`
 }
 
-func (e *Expression) Evaluate(ctx context.Context) (value.Value, []ConfigPoint, error) {
+func (e *Expression) Evaluate(ctx context.Context) (value.Value, []value.ConfigPoint, error) {
 	util.AssertEnum("invalid expression", e.Atom, e.List)
 
 	if e.Atom != nil {
 		v, err := e.Atom.Evaluate()
-		return v, []ConfigPoint{}, err
+		return v, []value.ConfigPoint{}, err
 	}
 
 	list := e.List
 	if trivial := list.TrivialExpression(); trivial != nil {
 		v, err := trivial.Evaluate()
-		return v, []ConfigPoint{}, err
+		return v, []value.ConfigPoint{}, err
 	}
 
 	functionName, err := list.GetFunctionName(ctx)

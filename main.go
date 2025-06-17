@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/BSFishy/mora-manager/expr"
 	"github.com/BSFishy/mora-manager/model"
 	"github.com/BSFishy/mora-manager/router"
 	"github.com/BSFishy/mora-manager/templates"
@@ -21,7 +22,7 @@ type App struct {
 	clientset *kubernetes.Clientset
 	db        *model.DB
 	secret    string
-	registry  *FunctionRegistry
+	registry  *expr.FunctionRegistry
 }
 
 func NewApp() App {
@@ -57,7 +58,7 @@ func NewApp() App {
 		slog.Info("setup secret", "secret", secret)
 	}
 
-	registry := NewFunctionRegistry()
+	registry := expr.NewFunctionRegistry()
 	RegisterDefaultFunctions(registry)
 
 	return App{

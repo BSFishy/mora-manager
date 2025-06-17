@@ -85,14 +85,3 @@ func GetState(ctx context.Context) (*state.State, bool) {
 	state, ok := ctx.Value(stateKey).(*state.State)
 	return state, ok
 }
-
-const functionRegistryKey contextKey = "function_registry"
-
-func WithFunctionRegistry(ctx context.Context, registry *FunctionRegistry) context.Context {
-	return context.WithValue(ctx, functionRegistryKey, registry)
-}
-
-func GetFunctionRegistry(ctx context.Context) (*FunctionRegistry, bool) {
-	registry, ok := ctx.Value(functionRegistryKey).(*FunctionRegistry)
-	return registry, ok
-}

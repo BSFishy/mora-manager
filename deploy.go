@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/BSFishy/mora-manager/expr"
 	"github.com/BSFishy/mora-manager/model"
 	"github.com/BSFishy/mora-manager/state"
 	"github.com/BSFishy/mora-manager/util"
@@ -22,7 +23,7 @@ func (a *App) deploy(d *model.Deployment) {
 
 	logger = logger.With("deployment", d.Id, "environment", d.EnvironmentId)
 	ctx = util.WithLogger(ctx, logger)
-	ctx = WithFunctionRegistry(ctx, a.registry)
+	ctx = expr.WithFunctionRegistry(ctx, a.registry)
 
 	err := a.db.Transact(ctx, func(tx *sql.Tx) error {
 		err := d.Lock(ctx, tx)
@@ -118,10 +119,10 @@ func (a *App) deploy(d *model.Deployment) {
 					}
 
 					for _, point := range cfp {
-						var description *Expression
+						var description *expr.Expression
 						if point.Description != nil {
-							description = &Expression{
-								Atom: &Atom{
+							description = &expr.Expression{
+								Atom: &expr.Atom{
 									String: point.Description,
 								},
 							}
@@ -130,8 +131,8 @@ func (a *App) deploy(d *model.Deployment) {
 						config.Configs = append(config.Configs, ModuleConfig{
 							ModuleName: service.ModuleName,
 							Identifier: point.Identifier,
-							Name: Expression{
-								Atom: &Atom{
+							Name: expr.Expression{
+								Atom: &expr.Atom{
 									String: &point.Name,
 								},
 							},

@@ -5,21 +5,22 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/BSFishy/mora-manager/expr"
 	"github.com/BSFishy/mora-manager/util"
 	"github.com/BSFishy/mora-manager/value"
 )
 
-func RegisterDefaultFunctions(r *FunctionRegistry) {
-	r.Register("config", ExpressionFunction{
+func RegisterDefaultFunctions(r *expr.FunctionRegistry) {
+	r.Register("config", expr.ExpressionFunction{
 		MinArgs:  1,
 		MaxArgs:  2,
 		Evaluate: evaluateConfigFunction,
 	})
 
-	r.Register("service", ExpressionFunction{
+	r.Register("service", expr.ExpressionFunction{
 		MinArgs: 2,
 		MaxArgs: 2,
-		Evaluate: func(ctx context.Context, args Args) (value.Value, []ConfigPoint, error) {
+		Evaluate: func(ctx context.Context, args expr.Args) (value.Value, []value.ConfigPoint, error) {
 			moduleName, err := args.Identifier(ctx, 0)
 			if err != nil {
 				return nil, nil, err
@@ -35,7 +36,7 @@ func RegisterDefaultFunctions(r *FunctionRegistry) {
 	})
 }
 
-func evaluateConfigFunction(ctx context.Context, args Args) (value.Value, []ConfigPoint, error) {
+func evaluateConfigFunction(ctx context.Context, args expr.Args) (value.Value, []value.ConfigPoint, error) {
 	moduleName, identifier, err := getConfigNames(ctx, args)
 	if err != nil {
 		return nil, nil, err
@@ -44,7 +45,7 @@ func evaluateConfigFunction(ctx context.Context, args Args) (value.Value, []Conf
 	state := util.Has(GetState(ctx))
 	cfg := state.FindConfig(moduleName, identifier)
 	if cfg != nil {
-		return value.NewString(cfg.Value), []ConfigPoint{}, nil
+		return value.NewString(cfg.Value), []value.ConfigPoint{}, nil
 	}
 
 	config := util.Has(GetConfig(ctx))
@@ -85,7 +86,7 @@ func evaluateConfigFunction(ctx context.Context, args Args) (value.Value, []Conf
 		description = &str
 	}
 
-	return value.NewNull(), []ConfigPoint{
+	return value.NewNull(), []value.ConfigPoint{
 		{
 			ModuleName:  moduleName,
 			Identifier:  identifier,
@@ -95,7 +96,7 @@ func evaluateConfigFunction(ctx context.Context, args Args) (value.Value, []Conf
 	}, nil
 }
 
-func getConfigNames(ctx context.Context, args Args) (string, string, error) {
+func getConfigNames(ctx context.Context, args expr.Args) (string, string, error) {
 	var (
 		moduleName string
 		identifier string

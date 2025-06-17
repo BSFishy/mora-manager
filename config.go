@@ -5,18 +5,12 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/BSFishy/mora-manager/expr"
 	"github.com/BSFishy/mora-manager/util"
 	"github.com/BSFishy/mora-manager/value"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
-
-type ConfigPoint struct {
-	ModuleName  string
-	Identifier  string
-	Name        string
-	Description *string
-}
 
 type Config struct {
 	Services []ServiceConfig
@@ -34,22 +28,22 @@ func (c *Config) FindConfig(moduleName, identifier string) *ModuleConfig {
 }
 
 type ServiceWingman struct {
-	Image Expression
+	Image expr.Expression
 }
 
 type ServiceConfig struct {
 	ModuleName  string
 	ServiceName string
-	Image       Expression
+	Image       expr.Expression
 
 	Wingman *ServiceWingman
 }
 
-func (s *ServiceConfig) Evaluate(ctx context.Context) (*ServiceDefinition, []ConfigPoint, error) {
+func (s *ServiceConfig) Evaluate(ctx context.Context) (*ServiceDefinition, []value.ConfigPoint, error) {
 	user := util.Has(GetUser(ctx))
 	environment := util.Has(GetEnvironment(ctx))
 
-	configPoints := []ConfigPoint{}
+	configPoints := []value.ConfigPoint{}
 
 	image, imageCfp, err := s.Image.Evaluate(ctx)
 	if err != nil {

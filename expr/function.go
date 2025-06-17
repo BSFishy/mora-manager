@@ -1,25 +1,17 @@
-package main
+package expr
 
 import (
 	"context"
 	"errors"
 	"sync"
 
-	"github.com/BSFishy/mora-manager/state"
 	"github.com/BSFishy/mora-manager/value"
 )
-
-type FunctionContext struct {
-	Registry   *FunctionRegistry
-	Config     *Config
-	State      *state.State
-	ModuleName string
-}
 
 type ExpressionFunction struct {
 	MinArgs  int
 	MaxArgs  int // -1 for unlimited
-	Evaluate func(context.Context, Args) (value.Value, []ConfigPoint, error)
+	Evaluate func(context.Context, Args) (value.Value, []value.ConfigPoint, error)
 }
 
 func (e *ExpressionFunction) IsInvalid(args Args) bool {
@@ -67,9 +59,9 @@ func (a Args) Len() int {
 	return len(a)
 }
 
-func (a Args) Evaluate(ctx context.Context, i int) (value.Value, []ConfigPoint, error) {
+func (a Args) Evaluate(ctx context.Context, i int) (value.Value, []value.ConfigPoint, error) {
 	if i >= len(a) {
-		return value.NewNull(), []ConfigPoint{}, nil
+		return value.NewNull(), []value.ConfigPoint{}, nil
 	}
 
 	return a[i].Evaluate(ctx)

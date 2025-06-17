@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/BSFishy/mora-manager/expr"
 	"github.com/BSFishy/mora-manager/model"
 	"github.com/BSFishy/mora-manager/router"
 	statepkg "github.com/BSFishy/mora-manager/state"
@@ -31,19 +32,19 @@ type ModuleConfig struct {
 	// around
 	ModuleName  string
 	Identifier  string
-	Name        Expression
-	Description *Expression
+	Name        expr.Expression
+	Description *expr.Expression
 }
 
 type ApiWingman struct {
-	Image Expression
+	Image expr.Expression
 }
 
 type Service struct {
-	Name     string       `json:"name"`
-	Image    Expression   `json:"image"`
-	Requires []Expression `json:"requires"`
-	Wingman  *ApiWingman  `json:"wingman,omitempty"`
+	Name     string            `json:"name"`
+	Image    expr.Expression   `json:"image"`
+	Requires []expr.Expression `json:"requires"`
+	Wingman  *ApiWingman       `json:"wingman,omitempty"`
 }
 
 func (s *Service) RequiredServices(ctx context.Context) ([]statepkg.ServiceRef, error) {
@@ -162,7 +163,7 @@ func (a *App) createDeployment(w http.ResponseWriter, req *http.Request) error {
 	ctx := req.Context()
 	user, _ := GetUser(ctx)
 
-	ctx = WithFunctionRegistry(ctx, a.registry)
+	ctx = expr.WithFunctionRegistry(ctx, a.registry)
 
 	params := router.Params(req)
 	environmentSlug := params["slug"]
@@ -326,7 +327,7 @@ func (a *App) deploymentPage(w http.ResponseWriter, r *http.Request) error {
 	ctx := r.Context()
 	user, _ := GetUser(ctx)
 
-	ctx = WithFunctionRegistry(ctx, a.registry)
+	ctx = expr.WithFunctionRegistry(ctx, a.registry)
 
 	params := router.Params(r)
 	id := params["id"]
@@ -353,7 +354,7 @@ func (a *App) deploymentPage(w http.ResponseWriter, r *http.Request) error {
 		return nil
 	}
 
-	var configPoints []templates.ConfigPoint
+	var configPoints []value.ConfigPoint
 	if deployment.Status == model.Waiting {
 		var config Config
 		if err = json.Unmarshal(deployment.Config, &config); err != nil {
@@ -382,15 +383,7 @@ func (a *App) deploymentPage(w http.ResponseWriter, r *http.Request) error {
 				return fmt.Errorf("evaluating service: %w", err)
 			}
 
-			configPoints = make([]templates.ConfigPoint, len(cfp))
-			for i, point := range cfp {
-				configPoints[i] = templates.ConfigPoint{
-					ModuleName:  point.ModuleName,
-					Identifier:  point.Identifier,
-					Name:        point.Name,
-					Description: point.Description,
-				}
-			}
+			configPoints = append(configPoints, cfp...)
 
 			wm, err := a.FindWingman(ctx)
 			if err != nil {
@@ -404,7 +397,8 @@ func (a *App) deploymentPage(w http.ResponseWriter, r *http.Request) error {
 				}
 
 				for _, point := range cfp {
-					configPoints = append(configPoints, templates.ConfigPoint{
+					// TODO: ideally these are not separate types
+					configPoints = append(configPoints, value.ConfigPoint{
 						ModuleName:  service.ModuleName,
 						Identifier:  point.Identifier,
 						Name:        point.Name,
