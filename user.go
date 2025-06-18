@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/BSFishy/mora-manager/model"
 	"github.com/BSFishy/mora-manager/templates"
 	"github.com/BSFishy/mora-manager/util"
 )
@@ -81,7 +82,7 @@ func (a *App) userProtected(handler http.Handler) http.Handler {
 			return fmt.Errorf("getting user: %w", err)
 		}
 
-		r = r.WithContext(WithUser(WithSession(ctx, session), user))
+		r = r.WithContext(model.WithUser(model.WithSession(ctx, session), user))
 
 		handler.ServeHTTP(w, r)
 		return nil
@@ -131,7 +132,7 @@ func (a *App) userMiddleware(handler http.Handler) http.Handler {
 			return nil
 		}
 
-		r = r.WithContext(WithSession(ctx, session))
+		r = r.WithContext(model.WithSession(ctx, session))
 
 		handler.ServeHTTP(w, r)
 		return nil
@@ -160,7 +161,7 @@ func (a *App) userHtmxRoute(w http.ResponseWriter, r *http.Request) error {
 		return fmt.Errorf("creating new user: %w", err)
 	}
 
-	session, _ := GetSession(ctx)
+	session, _ := model.GetSession(ctx)
 	err = session.UpdateUserId(ctx, a.db, user.Id)
 	if err != nil {
 		return fmt.Errorf("updating session user id: %w", err)
@@ -210,7 +211,7 @@ func (a *App) loginHtmxRoute(w http.ResponseWriter, r *http.Request) error {
 func (a *App) signOut(w http.ResponseWriter, r *http.Request) error {
 	ctx := r.Context()
 
-	session, ok := GetSession(ctx)
+	session, ok := model.GetSession(ctx)
 	if !ok {
 		w.Header().Set("Hx-Location", "/login")
 		return nil

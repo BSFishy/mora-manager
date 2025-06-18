@@ -8,13 +8,10 @@ import (
 	"fmt"
 
 	"github.com/BSFishy/mora-manager/expr"
+	"github.com/BSFishy/mora-manager/kube"
 	"github.com/BSFishy/mora-manager/model"
 	"github.com/BSFishy/mora-manager/state"
 	"github.com/BSFishy/mora-manager/util"
-	corev1 "k8s.io/api/core/v1"
-	k8serror "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
 )
 
 func (a *App) deploy(d *model.Deployment) {
@@ -36,14 +33,14 @@ func (a *App) deploy(d *model.Deployment) {
 			return fmt.Errorf("getting environment: %w", err)
 		}
 
-		ctx = WithEnvironment(ctx, environment)
+		ctx = model.WithEnvironment(ctx, environment)
 
 		user, err := a.db.GetUserById(ctx, environment.UserId)
 		if err != nil {
 			return fmt.Errorf("getting user: %w", err)
 		}
 
-		ctx = WithUser(ctx, user)
+		ctx = model.WithUser(ctx, user)
 
 		if err = d.Refresh(ctx, tx); err != nil {
 			return fmt.Errorf("refreshing deployment: %w", err)
@@ -73,8 +70,7 @@ func (a *App) deploy(d *model.Deployment) {
 
 		ctx = WithState(ctx, &state)
 
-		namespace := fmt.Sprintf("%s-%s", user.Username, environment.Slug)
-		if err = ensureNamespace(ctx, a.clientset, namespace); err != nil {
+		if err = kube.EnsureNamespace(ctx, a.clientset); err != nil {
 			return fmt.Errorf("ensuring namespace: %w", err)
 		}
 
@@ -83,8 +79,8 @@ func (a *App) deploy(d *model.Deployment) {
 			logger := logger.With("module", service.ModuleName, "service", service.ServiceName)
 			ctx := util.WithLogger(ctx, logger)
 
-			ctx = WithModuleName(ctx, service.ModuleName)
-			ctx = WithServiceName(ctx, service.ServiceName)
+			ctx = util.WithModuleName(ctx, service.ModuleName)
+			ctx = util.WithServiceName(ctx, service.ServiceName)
 
 			def, configPoints, err := service.Evaluate(ctx)
 			if err != nil {
@@ -100,7 +96,7 @@ func (a *App) deploy(d *model.Deployment) {
 				return nil
 			}
 
-			if wm := def.WingmanDeployment(namespace); wm != nil {
+			if wm := def.MaterializeWingman(ctx); wm != nil {
 				if err = wm.Deploy(ctx, a.clientset); err != nil {
 					return fmt.Errorf("deploying wingman: %w", err)
 				}
@@ -118,6 +114,7 @@ func (a *App) deploy(d *model.Deployment) {
 						return fmt.Errorf("getting wingman config points: %w", err)
 					}
 
+					// TODO: this sucks
 					for _, point := range cfp {
 						var description *expr.Expression
 						if point.Description != nil {
@@ -155,7 +152,7 @@ func (a *App) deploy(d *model.Deployment) {
 				}
 			}
 
-			deployment := def.Deployment(namespace)
+			deployment := def.Materialize(ctx)
 			if err = deployment.Deploy(ctx, a.clientset); err != nil {
 				return fmt.Errorf("deploying service: %w", err)
 			}
@@ -168,6 +165,8 @@ func (a *App) deploy(d *model.Deployment) {
 			return fmt.Errorf("updating status to success: %w", err)
 		}
 
+		logger.Info("deployment successful")
+
 		return nil
 	})
 	if err != nil {
@@ -177,28 +176,4 @@ func (a *App) deploy(d *model.Deployment) {
 			logger.Error("updating status to errored", "err", err)
 		}
 	}
-}
-
-func ensureNamespace(ctx context.Context, clientset *kubernetes.Clientset, namespace string) error {
-	_, err := clientset.CoreV1().Namespaces().Get(ctx, namespace, metav1.GetOptions{})
-	if err == nil {
-		return nil
-	}
-
-	if k8serror.IsNotFound(err) {
-		config := corev1.Namespace{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: namespace,
-			},
-		}
-
-		_, err := clientset.CoreV1().Namespaces().Create(ctx, &config, metav1.CreateOptions{})
-		if err != nil {
-			return fmt.Errorf("creating namespace: %w", err)
-		}
-
-		return nil
-	}
-
-	return fmt.Errorf("getting namespace: %w", err)
 }

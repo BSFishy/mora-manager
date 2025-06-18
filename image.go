@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/BSFishy/mora-manager/model"
 	"github.com/BSFishy/mora-manager/util"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
@@ -26,7 +27,7 @@ func (a *App) imagePush(w http.ResponseWriter, r *http.Request) error {
 	defer r.Body.Close()
 
 	ctx := r.Context()
-	user, _ := GetUser(ctx)
+	user, _ := model.GetUser(ctx)
 
 	query := r.URL.Query()
 	environment := query.Get("environment")

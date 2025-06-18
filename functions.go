@@ -114,7 +114,7 @@ func getConfigNames(ctx context.Context, args expr.Args) (string, string, error)
 			return "", "", fmt.Errorf("evaluating identifier: %w", err)
 		}
 	} else {
-		moduleName = util.Has(GetModuleName(ctx))
+		moduleName = util.Has(util.GetModuleName(ctx))
 		identifier, err = args.Identifier(ctx, 0)
 		if err != nil {
 			return "", "", fmt.Errorf("evaluating identifier: %w", err)

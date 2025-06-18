@@ -6,10 +6,12 @@ import (
 	"fmt"
 
 	"github.com/BSFishy/mora-manager/expr"
+	"github.com/BSFishy/mora-manager/kube"
+	"github.com/BSFishy/mora-manager/model"
 	"github.com/BSFishy/mora-manager/util"
 	"github.com/BSFishy/mora-manager/value"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 type Config struct {
@@ -40,8 +42,8 @@ type ServiceConfig struct {
 }
 
 func (s *ServiceConfig) Evaluate(ctx context.Context) (*ServiceDefinition, []value.ConfigPoint, error) {
-	user := util.Has(GetUser(ctx))
-	environment := util.Has(GetEnvironment(ctx))
+	user := util.Has(model.GetUser(ctx))
+	environment := util.Has(model.GetEnvironment(ctx))
 
 	configPoints := []value.ConfigPoint{}
 
@@ -103,36 +105,25 @@ type ServiceDefinition struct {
 	Wingman *WingmanDefinition
 }
 
-func (s *ServiceDefinition) Deployment(namespace string) *KubernetesDeployment {
-	return &KubernetesDeployment{
-		Namespace:   namespace,
-		User:        s.User,
-		Environment: s.Environment,
-		Module:      s.Module,
-		Service:     s.Name,
-		Image:       s.Image,
+func (s *ServiceDefinition) Materialize(ctx context.Context) *kube.MaterializedService {
+	return &kube.MaterializedService{
+		Deployments: []kube.Resource[appsv1.Deployment]{
+			kube.NewDeployment(ctx, s.Image, false),
+		},
 	}
 }
 
-func (s *ServiceDefinition) WingmanDeployment(namespace string) *KubernetesDeployment {
+func (s *ServiceDefinition) MaterializeWingman(ctx context.Context) *kube.MaterializedService {
 	if s.Wingman == nil {
-		return nil
+		return &kube.MaterializedService{}
 	}
 
-	subservice := "wingman"
-	return &KubernetesDeployment{
-		Namespace:   namespace,
-		User:        s.User,
-		Environment: s.Environment,
-		Module:      s.Module,
-		Service:     s.Name,
-		Subservice:  &subservice,
-		Image:       s.Wingman.Image,
-		Ports: []corev1.ServicePort{
-			{
-				Port:       8080,
-				TargetPort: intstr.FromInt(8080),
-			},
+	return &kube.MaterializedService{
+		Deployments: []kube.Resource[appsv1.Deployment]{
+			kube.NewDeployment(ctx, s.Wingman.Image, true),
+		},
+		Services: []kube.Resource[corev1.Service]{
+			kube.NewService(ctx, true),
 		},
 	}
 }

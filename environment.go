@@ -5,12 +5,13 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/BSFishy/mora-manager/model"
 	"github.com/BSFishy/mora-manager/templates"
 )
 
 func (a *App) createEnvironmentHtmxRoute(w http.ResponseWriter, r *http.Request) error {
 	ctx := r.Context()
-	user, _ := GetUser(ctx)
+	user, _ := model.GetUser(ctx)
 
 	if err := r.ParseForm(); err != nil {
 		return fmt.Errorf("parsing form: %w", err)
@@ -46,7 +47,7 @@ func (a *App) createEnvironmentHtmxRoute(w http.ResponseWriter, r *http.Request)
 
 func (a *App) deleteEnvironmentHtmxRoute(w http.ResponseWriter, r *http.Request) error {
 	ctx := r.Context()
-	user, _ := GetUser(ctx)
+	user, _ := model.GetUser(ctx)
 
 	environmentId := r.URL.Query().Get("id")
 	if environmentId == "" {

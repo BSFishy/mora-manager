@@ -4,12 +4,13 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/BSFishy/mora-manager/model"
 	"github.com/BSFishy/mora-manager/templates"
 )
 
 func (a *App) dashboardPage(w http.ResponseWriter, r *http.Request) error {
 	ctx := r.Context()
-	user, _ := GetUser(ctx)
+	user, _ := model.GetUser(ctx)
 
 	environments, err := a.db.GetUserEnvironments(ctx, user.Id)
 	if err != nil {

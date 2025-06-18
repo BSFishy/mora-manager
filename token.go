@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/BSFishy/mora-manager/model"
 	"github.com/BSFishy/mora-manager/router"
 	"github.com/BSFishy/mora-manager/templates"
 )
@@ -26,7 +27,7 @@ func (a *App) getTokenIds(ctx context.Context, userId string) ([]string, error) 
 
 func (a *App) tokenHtmxRoute(w http.ResponseWriter, r *http.Request) error {
 	ctx := r.Context()
-	user, _ := GetUser(ctx)
+	user, _ := model.GetUser(ctx)
 
 	_, err := a.db.NewToken(ctx, user.Id)
 	if err != nil {
@@ -43,7 +44,7 @@ func (a *App) tokenHtmxRoute(w http.ResponseWriter, r *http.Request) error {
 
 func (a *App) revokeTokenHtmxRoute(w http.ResponseWriter, r *http.Request) error {
 	ctx := r.Context()
-	user, _ := GetUser(ctx)
+	user, _ := model.GetUser(ctx)
 
 	if err := r.ParseForm(); err != nil {
 		return fmt.Errorf("parsing form: %w", err)
@@ -104,7 +105,7 @@ func (a *App) apiMiddleware(handler http.Handler) http.Handler {
 			return nil
 		}
 
-		r = r.WithContext(WithUser(ctx, user))
+		r = r.WithContext(model.WithUser(ctx, user))
 
 		handler.ServeHTTP(w, r)
 		return nil
@@ -113,7 +114,7 @@ func (a *App) apiMiddleware(handler http.Handler) http.Handler {
 
 func (a *App) tokenPage(w http.ResponseWriter, r *http.Request) error {
 	ctx := r.Context()
-	user, _ := GetUser(ctx)
+	user, _ := model.GetUser(ctx)
 
 	tokens, err := a.getTokenIds(ctx, user.Id)
 	if err != nil {

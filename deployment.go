@@ -161,7 +161,7 @@ func (a *App) createDeployment(w http.ResponseWriter, req *http.Request) error {
 	}
 
 	ctx := req.Context()
-	user, _ := GetUser(ctx)
+	user, _ := model.GetUser(ctx)
 
 	ctx = expr.WithFunctionRegistry(ctx, a.registry)
 
@@ -178,7 +178,7 @@ func (a *App) createDeployment(w http.ResponseWriter, req *http.Request) error {
 		return nil
 	}
 
-	ctx = WithEnvironment(ctx, environment)
+	ctx = model.WithEnvironment(ctx, environment)
 
 	if err = environment.CancelInProgressDeployments(ctx, a.db); err != nil {
 		return fmt.Errorf("cancelling deployments: %w", err)
@@ -212,7 +212,7 @@ func (a *App) createDeployment(w http.ResponseWriter, req *http.Request) error {
 
 func (a *App) deploymentHtmxRoute(w http.ResponseWriter, r *http.Request) error {
 	ctx := r.Context()
-	user, _ := GetUser(ctx)
+	user, _ := model.GetUser(ctx)
 
 	environments, err := a.db.GetUserEnvironments(ctx, user.Id)
 	if err != nil {
@@ -231,7 +231,7 @@ func (a *App) updateDeploymentConfigHtmxRoute(w http.ResponseWriter, r *http.Req
 	ctx := r.Context()
 	logger := util.LogFromCtx(ctx)
 
-	user, _ := GetUser(ctx)
+	user, _ := model.GetUser(ctx)
 
 	params := router.Params(r)
 	id := params["id"]
@@ -325,7 +325,7 @@ func (a *App) updateDeploymentConfigHtmxRoute(w http.ResponseWriter, r *http.Req
 
 func (a *App) deploymentPage(w http.ResponseWriter, r *http.Request) error {
 	ctx := r.Context()
-	user, _ := GetUser(ctx)
+	user, _ := model.GetUser(ctx)
 
 	ctx = expr.WithFunctionRegistry(ctx, a.registry)
 
@@ -347,7 +347,7 @@ func (a *App) deploymentPage(w http.ResponseWriter, r *http.Request) error {
 		return fmt.Errorf("getting environment: %w", err)
 	}
 
-	ctx = WithEnvironment(ctx, environment)
+	ctx = model.WithEnvironment(ctx, environment)
 
 	if environment.UserId != user.Id {
 		http.NotFound(w, r)
@@ -375,8 +375,8 @@ func (a *App) deploymentPage(w http.ResponseWriter, r *http.Request) error {
 		services := config.Services[state.ServiceIndex:]
 		if len(services) > 0 {
 			service := services[0]
-			ctx := WithModuleName(ctx, service.ModuleName)
-			ctx = WithServiceName(ctx, service.ServiceName)
+			ctx := util.WithModuleName(ctx, service.ModuleName)
+			ctx = util.WithServiceName(ctx, service.ServiceName)
 
 			_, cfp, err := service.Evaluate(ctx)
 			if err != nil {
