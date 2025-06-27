@@ -40,6 +40,8 @@ spec:
             - containerPort: 8080
             - containerPort: 7331
           env:
+            - name: LEVEL
+              value: DEBUG
             - name: MORA_DB_HOST
               value: postgres.mora-dev:5432
             - name: MORA_EXTERNAL_REPO_URL

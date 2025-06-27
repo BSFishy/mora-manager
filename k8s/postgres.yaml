@@ -37,6 +37,7 @@ spec:
               value: "mora"
           ports:
             - containerPort: 5432
+              hostPort: 5432
           volumeMounts:
             - name: pgdata
               mountPath: /var/lib/postgresql/data

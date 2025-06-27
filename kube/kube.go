@@ -46,7 +46,9 @@ func Deploy[T any](ctx context.Context, client *kubernetes.Clientset, res Resour
 	}
 
 	for !res.Ready(created) {
+		util.LogFromCtx(ctx).Debug("waiting for resource to be ready")
 		time.Sleep(500 * time.Millisecond)
+
 		created, err = res.Get(ctx, client)
 		if err != nil {
 			return fmt.Errorf("re-fetching for readiness: %w", err)

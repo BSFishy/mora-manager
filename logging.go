@@ -14,9 +14,17 @@ func SetupLogger() {
 		style = "text"
 	}
 
+	level := slog.LevelInfo
+	if lvl, ok := os.LookupEnv("LEVEL"); ok {
+		if err := level.UnmarshalText([]byte(lvl)); err != nil {
+			panic(err)
+		}
+	}
+
 	var handler slog.Handler
 	opts := &slog.HandlerOptions{
 		AddSource: debug,
+		Level:     level,
 	}
 
 	switch style {

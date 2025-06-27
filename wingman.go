@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -68,13 +69,16 @@ func (a *App) FindWingman(ctx context.Context) (wingman.Wingman, error) {
 	return nil, err
 }
 
-func (r *RunwayWingman) request(method, url string, body []byte) (*http.Response, error) {
+func (r *RunwayWingman) request(ctx context.Context, method, url string, body []byte) (*http.Response, error) {
 	fullUrl := fmt.Sprintf("%s%s", r.Url, url)
+
+	requestGroup := slog.Group("request", "method", method, "url", url)
+	util.LogFromCtx(ctx).Debug("querying wingman", requestGroup)
 
 	var err error
 	for range 10 {
 		var req *http.Request
-		req, err = http.NewRequest(method, fullUrl, bytes.NewReader(body))
+		req, err = http.NewRequestWithContext(ctx, method, fullUrl, bytes.NewReader(body))
 		if err != nil {
 			return nil, fmt.Errorf("creating request: %w", err)
 		}
@@ -85,6 +89,12 @@ func (r *RunwayWingman) request(method, url string, body []byte) (*http.Response
 			return resp, nil
 		}
 
+		statusCode := -1
+		if resp != nil {
+			statusCode = resp.StatusCode
+		}
+
+		util.LogFromCtx(ctx).Debug("retrying wingman request", requestGroup, slog.Group("response", "status", statusCode))
 		time.Sleep(time.Second)
 	}
 
@@ -105,7 +115,7 @@ func (r *RunwayWingman) GetConfigPoints(ctx context.Context) ([]config.Point, er
 		return nil, fmt.Errorf("encoding body: %w", err)
 	}
 
-	resp, err := r.request(http.MethodPost, "/api/v1/config-point", body)
+	resp, err := r.request(ctx, http.MethodPost, "/api/v1/config-point", body)
 	if err != nil {
 		return nil, fmt.Errorf("getting endpoint: %w", err)
 	}
@@ -115,5 +125,12 @@ func (r *RunwayWingman) GetConfigPoints(ctx context.Context) ([]config.Point, er
 		return nil, fmt.Errorf("decoding body: %w", err)
 	}
 
-	return data.ConfigPoints, nil
+	points := make([]config.Point, len(data.ConfigPoints))
+	for i, point := range data.ConfigPoints {
+		point.Fill(ctx)
+
+		points[i] = point
+	}
+
+	return points, nil
 }

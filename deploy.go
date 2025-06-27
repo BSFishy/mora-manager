@@ -114,7 +114,9 @@ func (a *App) deploy(d *model.Deployment) {
 						return fmt.Errorf("getting wingman config points: %w", err)
 					}
 
-					// TODO: this sucks
+					// TODO: this feels wrong. why am i adding it to the config? i feel
+					// like this should just be something i add directly to the state and
+					// be good with it?
 					for _, point := range cfp {
 						cfg.Configs = append(cfg.Configs, point)
 					}
@@ -128,7 +130,7 @@ func (a *App) deploy(d *model.Deployment) {
 							return fmt.Errorf("updating state: %w", err)
 						}
 
-						logger.Info("waiting for dynamic config")
+						logger.Info("waiting for dynamic wingman config")
 						return nil
 					}
 				}
