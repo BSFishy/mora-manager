@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/BSFishy/mora-manager/config"
 	"github.com/BSFishy/mora-manager/util"
 	"github.com/BSFishy/mora-manager/value"
 )
@@ -15,18 +16,31 @@ type Expression struct {
 	List *ListExpression `json:"list,omitempty"`
 }
 
-func (e *Expression) Evaluate(ctx context.Context) (value.Value, []value.ConfigPoint, error) {
+func (e *Expression) ForceEvaluate(ctx context.Context) (value.Value, error) {
+	value, cfp, err := e.Evaluate(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(cfp) > 0 {
+		return nil, errors.New("expression has configuration")
+	}
+
+	return value, nil
+}
+
+func (e *Expression) Evaluate(ctx context.Context) (value.Value, []config.Point, error) {
 	util.AssertEnum("invalid expression", e.Atom, e.List)
 
 	if e.Atom != nil {
 		v, err := e.Atom.Evaluate()
-		return v, []value.ConfigPoint{}, err
+		return v, []config.Point{}, err
 	}
 
 	list := e.List
 	if trivial := list.TrivialExpression(); trivial != nil {
 		v, err := trivial.Evaluate()
-		return v, []value.ConfigPoint{}, err
+		return v, []config.Point{}, err
 	}
 
 	functionName, err := list.GetFunctionName(ctx)

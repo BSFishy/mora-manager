@@ -54,12 +54,12 @@ func (a *App) deploy(d *model.Deployment) {
 			return fmt.Errorf("updating status: %w", err)
 		}
 
-		var config Config
-		if err = json.Unmarshal(d.Config, &config); err != nil {
+		var cfg Config
+		if err = json.Unmarshal(d.Config, &cfg); err != nil {
 			return fmt.Errorf("decoding config: %w", err)
 		}
 
-		ctx = WithConfig(ctx, &config)
+		ctx = WithConfig(ctx, &cfg)
 
 		var state state.State
 		if d.State != nil {
@@ -74,7 +74,7 @@ func (a *App) deploy(d *model.Deployment) {
 			return fmt.Errorf("ensuring namespace: %w", err)
 		}
 
-		services := config.Services[state.ServiceIndex:]
+		services := cfg.Services[state.ServiceIndex:]
 		for _, service := range services {
 			logger := logger.With("module", service.ModuleName, "service", service.ServiceName)
 			ctx := util.WithLogger(ctx, logger)
@@ -116,29 +116,11 @@ func (a *App) deploy(d *model.Deployment) {
 
 					// TODO: this sucks
 					for _, point := range cfp {
-						var description *expr.Expression
-						if point.Description != nil {
-							description = &expr.Expression{
-								Atom: &expr.Atom{
-									String: point.Description,
-								},
-							}
-						}
-
-						config.Configs = append(config.Configs, ModuleConfig{
-							ModuleName: service.ModuleName,
-							Identifier: point.Identifier,
-							Name: expr.Expression{
-								Atom: &expr.Atom{
-									String: &point.Name,
-								},
-							},
-							Description: description,
-						})
+						cfg.Configs = append(cfg.Configs, point)
 					}
 
 					if len(cfp) > 0 {
-						if err = d.UpdateConfig(ctx, tx, config); err != nil {
+						if err = d.UpdateConfig(ctx, tx, cfg); err != nil {
 							return fmt.Errorf("updating config: %w", err)
 						}
 

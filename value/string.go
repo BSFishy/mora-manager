@@ -1,5 +1,9 @@
 package value
 
+import (
+	"fmt"
+)
+
 type StringValue struct {
 	value string
 }
@@ -24,4 +28,12 @@ func (s StringValue) Boolean() bool {
 
 func (s StringValue) Integer() int {
 	return 0
+}
+
+func AsString(value Value) (string, error) {
+	if value.Kind() != String {
+		return "", fmt.Errorf("expected string, found %s", value.Kind())
+	}
+
+	return value.String(), nil
 }

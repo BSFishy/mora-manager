@@ -2,9 +2,9 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
+	"github.com/BSFishy/mora-manager/config"
 	"github.com/BSFishy/mora-manager/expr"
 	"github.com/BSFishy/mora-manager/util"
 	"github.com/BSFishy/mora-manager/value"
@@ -20,7 +20,7 @@ func RegisterDefaultFunctions(r *expr.FunctionRegistry) {
 	r.Register("service", expr.ExpressionFunction{
 		MinArgs: 2,
 		MaxArgs: 2,
-		Evaluate: func(ctx context.Context, args expr.Args) (value.Value, []value.ConfigPoint, error) {
+		Evaluate: func(ctx context.Context, args expr.Args) (value.Value, []config.Point, error) {
 			moduleName, err := args.Identifier(ctx, 0)
 			if err != nil {
 				return nil, nil, err
@@ -36,64 +36,25 @@ func RegisterDefaultFunctions(r *expr.FunctionRegistry) {
 	})
 }
 
-func evaluateConfigFunction(ctx context.Context, args expr.Args) (value.Value, []value.ConfigPoint, error) {
+func evaluateConfigFunction(ctx context.Context, args expr.Args) (value.Value, []config.Point, error) {
 	moduleName, identifier, err := getConfigNames(ctx, args)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	state := util.Has(GetState(ctx))
-	cfg := state.FindConfig(moduleName, identifier)
-	if cfg != nil {
-		return value.NewString(cfg.Value), []value.ConfigPoint{}, nil
+	stateConfig := state.FindConfig(moduleName, identifier)
+	if stateConfig != nil {
+		return value.NewString(stateConfig.Value), []config.Point{}, nil
 	}
 
-	config := util.Has(GetConfig(ctx))
-	c := config.FindConfig(moduleName, identifier)
+	cfg := util.Has(GetConfig(ctx))
+	c := cfg.FindConfig(moduleName, identifier)
 	if c == nil {
 		return nil, nil, fmt.Errorf("invalid config reference: (config %s %s)", moduleName, identifier)
 	}
 
-	n, cfp, err := c.Name.Evaluate(ctx)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	if len(cfp) > 0 {
-		return value.NewNull(), cfp, nil
-	}
-
-	if n.Kind() != value.String {
-		return nil, nil, errors.New("expected string")
-	}
-
-	var description *string
-	if c.Description != nil {
-		v, cfp, err := c.Description.Evaluate(ctx)
-		if err != nil {
-			return nil, nil, err
-		}
-
-		if len(cfp) > 0 {
-			return value.NewNull(), cfp, nil
-		}
-
-		if v.Kind() != value.String {
-			return nil, nil, errors.New("expected string")
-		}
-
-		str := v.String()
-		description = &str
-	}
-
-	return value.NewNull(), []value.ConfigPoint{
-		{
-			ModuleName:  moduleName,
-			Identifier:  identifier,
-			Name:        n.String(),
-			Description: description,
-		},
-	}, nil
+	return nil, []config.Point{*c}, nil
 }
 
 func getConfigNames(ctx context.Context, args expr.Args) (string, string, error) {

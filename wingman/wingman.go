@@ -2,14 +2,10 @@ package wingman
 
 import (
 	"context"
+
+	"github.com/BSFishy/mora-manager/config"
 )
 
-type ConfigPoint struct {
-	Identifier  string
-	Name        string
-	Description *string
-}
-
 type Wingman interface {
-	GetConfigPoints(context.Context) ([]ConfigPoint, error)
+	GetConfigPoints(context.Context) ([]config.Point, error)
 }

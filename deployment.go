@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/BSFishy/mora-manager/config"
 	"github.com/BSFishy/mora-manager/expr"
 	"github.com/BSFishy/mora-manager/model"
 	"github.com/BSFishy/mora-manager/router"
@@ -28,12 +29,63 @@ type Module struct {
 }
 
 type ModuleConfig struct {
-	// this field doesnt exist on the api but it is useful for passing these
-	// around
-	ModuleName  string
-	Identifier  string
-	Name        expr.Expression
+	Identifier string
+	Name       expr.Expression
+	// TODO: maybe this shouldnt be optional?
+	Kind        *expr.Expression
 	Description *expr.Expression
+}
+
+func (m ModuleConfig) ToConfigPoint(ctx context.Context) (*config.Point, error) {
+	nameValue, err := m.Name.ForceEvaluate(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("evaluating name: %w", err)
+	}
+
+	name, err := value.AsString(nameValue)
+	if err != nil {
+		return nil, err
+	}
+
+	var kind string
+	if m.Kind != nil {
+		kindValue, err := m.Kind.ForceEvaluate(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("evaluating kind: %w", err)
+		}
+
+		// TODO: ideally we check to make sure that this is a valid kind here
+		kind, err = value.AsIdentifier(kindValue)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	var description *string
+	if m.Description != nil {
+		descriptionValue, err := m.Description.ForceEvaluate(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("evaluating description: %w", err)
+		}
+
+		descriptionPtr, err := value.AsString(descriptionValue)
+		if err != nil {
+			return nil, err
+		}
+
+		description = &descriptionPtr
+	}
+
+	point := config.Point{
+		Identifier:  m.Identifier,
+		Name:        name,
+		Kind:        config.PointKind(kind),
+		Description: description,
+	}
+
+	point.Fill(ctx)
+
+	return &point, nil
 }
 
 type ApiWingman struct {
@@ -74,16 +126,22 @@ func (s *Service) RequiredServices(ctx context.Context) ([]statepkg.ServiceRef, 
 	return services, nil
 }
 
-func (c *ApiConfig) FlattenConfigs() []ModuleConfig {
-	configs := []ModuleConfig{}
+func (c *ApiConfig) FlattenConfigs(ctx context.Context) ([]config.Point, error) {
+	configs := []config.Point{}
 	for _, module := range c.Modules {
+		ctx := util.WithModuleName(ctx, module.Name)
+
 		for _, config := range module.Configs {
-			config.ModuleName = module.Name
-			configs = append(configs, config)
+			point, err := config.ToConfigPoint(ctx)
+			if err != nil {
+				return nil, err
+			}
+
+			configs = append(configs, *point)
 		}
 	}
 
-	return configs
+	return configs, nil
 }
 
 func (c *ApiConfig) TopologicalSort(ctx context.Context) ([]ServiceConfig, error) {
@@ -154,8 +212,8 @@ type DeploymentResponse struct {
 }
 
 func (a *App) createDeployment(w http.ResponseWriter, req *http.Request) error {
-	var config ApiConfig
-	if err := json.NewDecoder(req.Body).Decode(&config); err != nil {
+	var cfg ApiConfig
+	if err := json.NewDecoder(req.Body).Decode(&cfg); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return nil
 	}
@@ -188,12 +246,15 @@ func (a *App) createDeployment(w http.ResponseWriter, req *http.Request) error {
 	// state related things, so this should be fine even though the state and
 	// config structures are not in the context. might want to look into just
 	// returning empty values for these for safety?
-	services, err := config.TopologicalSort(ctx)
+	services, err := cfg.TopologicalSort(ctx)
 	if err != nil {
 		return fmt.Errorf("sorting services: %w", err)
 	}
 
-	configs := config.FlattenConfigs()
+	configs, err := cfg.FlattenConfigs(ctx)
+	if err != nil {
+		return fmt.Errorf("flattening configs: %w", err)
+	}
 
 	deployment, err := environment.NewDeployment(ctx, a.db, Config{
 		Services: services,
@@ -279,8 +340,8 @@ func (a *App) updateDeploymentConfigHtmxRoute(w http.ResponseWriter, r *http.Req
 			return nil
 		}
 
-		var config Config
-		if err := json.Unmarshal(d.Config, &config); err != nil {
+		var cfg Config
+		if err := json.Unmarshal(d.Config, &cfg); err != nil {
 			return fmt.Errorf("decoding config: %w", err)
 		}
 
@@ -296,7 +357,7 @@ func (a *App) updateDeploymentConfigHtmxRoute(w http.ResponseWriter, r *http.Req
 			identifier := identifiers[i]
 			v := values[i]
 
-			if cfg := config.FindConfig(moduleName, identifier); cfg == nil {
+			if c := cfg.FindConfig(moduleName, identifier); c == nil {
 				w.WriteHeader(http.StatusBadRequest)
 				return nil
 			}
@@ -354,14 +415,14 @@ func (a *App) deploymentPage(w http.ResponseWriter, r *http.Request) error {
 		return nil
 	}
 
-	var configPoints []value.ConfigPoint
+	var configPoints []config.Point
 	if deployment.Status == model.Waiting {
-		var config Config
-		if err = json.Unmarshal(deployment.Config, &config); err != nil {
+		var cfg Config
+		if err = json.Unmarshal(deployment.Config, &cfg); err != nil {
 			return fmt.Errorf("decoding config: %w", err)
 		}
 
-		ctx = WithConfig(ctx, &config)
+		ctx = WithConfig(ctx, &cfg)
 
 		var state statepkg.State
 		if deployment.State != nil {
@@ -372,7 +433,7 @@ func (a *App) deploymentPage(w http.ResponseWriter, r *http.Request) error {
 
 		ctx = WithState(ctx, &state)
 
-		services := config.Services[state.ServiceIndex:]
+		services := cfg.Services[state.ServiceIndex:]
 		if len(services) > 0 {
 			service := services[0]
 			ctx := util.WithModuleName(ctx, service.ModuleName)
@@ -396,15 +457,7 @@ func (a *App) deploymentPage(w http.ResponseWriter, r *http.Request) error {
 					return fmt.Errorf("getting wingman config points: %w", err)
 				}
 
-				for _, point := range cfp {
-					// TODO: ideally these are not separate types
-					configPoints = append(configPoints, value.ConfigPoint{
-						ModuleName:  service.ModuleName,
-						Identifier:  point.Identifier,
-						Name:        point.Name,
-						Description: point.Description,
-					})
-				}
+				configPoints = append(configPoints, cfp...)
 			}
 		}
 	}

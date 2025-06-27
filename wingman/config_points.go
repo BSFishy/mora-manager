@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/BSFishy/mora-manager/config"
 	"github.com/BSFishy/mora-manager/state"
 )
 
@@ -14,7 +15,7 @@ type GetConfigPointsRequest struct {
 }
 
 type GetConfigPointsResponse struct {
-	ConfigPoints []ConfigPoint
+	ConfigPoints []config.Point
 }
 
 func (a *app) handleConfigPoints(w http.ResponseWriter, r *http.Request) error {

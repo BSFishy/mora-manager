@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/BSFishy/mora-manager/config"
 	"github.com/BSFishy/mora-manager/expr"
 	"github.com/BSFishy/mora-manager/kube"
 	"github.com/BSFishy/mora-manager/model"
@@ -16,10 +17,10 @@ import (
 
 type Config struct {
 	Services []ServiceConfig
-	Configs  []ModuleConfig
+	Configs  []config.Point
 }
 
-func (c *Config) FindConfig(moduleName, identifier string) *ModuleConfig {
+func (c *Config) FindConfig(moduleName, identifier string) *config.Point {
 	for _, config := range c.Configs {
 		if config.ModuleName == moduleName && config.Identifier == identifier {
 			return &config
@@ -41,11 +42,11 @@ type ServiceConfig struct {
 	Wingman *ServiceWingman
 }
 
-func (s *ServiceConfig) Evaluate(ctx context.Context) (*ServiceDefinition, []value.ConfigPoint, error) {
+func (s *ServiceConfig) Evaluate(ctx context.Context) (*ServiceDefinition, []config.Point, error) {
 	user := util.Has(model.GetUser(ctx))
 	environment := util.Has(model.GetEnvironment(ctx))
 
-	configPoints := []value.ConfigPoint{}
+	configPoints := []config.Point{}
 
 	image, imageCfp, err := s.Image.Evaluate(ctx)
 	if err != nil {

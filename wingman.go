@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/BSFishy/mora-manager/config"
 	"github.com/BSFishy/mora-manager/model"
 	"github.com/BSFishy/mora-manager/util"
 	"github.com/BSFishy/mora-manager/wingman"
@@ -90,7 +91,7 @@ func (r *RunwayWingman) request(method, url string, body []byte) (*http.Response
 	return nil, err
 }
 
-func (r *RunwayWingman) GetConfigPoints(ctx context.Context) ([]wingman.ConfigPoint, error) {
+func (r *RunwayWingman) GetConfigPoints(ctx context.Context) ([]config.Point, error) {
 	state := util.Has(GetState(ctx))
 	moduleName := util.Has(util.GetModuleName(ctx))
 

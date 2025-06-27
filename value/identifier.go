@@ -1,5 +1,7 @@
 package value
 
+import "fmt"
+
 type IdentifierValue struct {
 	value string
 }
@@ -24,4 +26,12 @@ func (i IdentifierValue) Boolean() bool {
 
 func (i IdentifierValue) Integer() int {
 	return 0
+}
+
+func AsIdentifier(value Value) (string, error) {
+	if value.Kind() != Identifier {
+		return "", fmt.Errorf("expected identifier, found %s", value.Kind())
+	}
+
+	return value.String(), nil
 }
