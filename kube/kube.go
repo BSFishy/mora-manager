@@ -24,8 +24,17 @@ type Resource[T any] interface {
 }
 
 func Deploy[T any](ctx context.Context, client *kubernetes.Clientset, res Resource[T]) error {
-	_, err := res.Get(ctx, client)
+	found, err := res.Get(ctx, client)
 	if err == nil {
+		valid, err := res.IsValid(ctx, found)
+		if err != nil {
+			return fmt.Errorf("checking validity: %w", err)
+		}
+
+		if valid {
+			return nil
+		}
+
 		if err = res.Delete(ctx, client); err != nil {
 			return fmt.Errorf("deleting resource: %w", err)
 		}

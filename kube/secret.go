@@ -3,6 +3,7 @@ package kube
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	"github.com/BSFishy/mora-manager/util"
 	corev1 "k8s.io/api/core/v1"
@@ -15,6 +16,8 @@ type Secret struct {
 	identifier string
 	value      []byte
 }
+
+const secretKey string = "value"
 
 func NewSecret(ctx context.Context, identifier string, value []byte) Resource[corev1.Secret] {
 	moduleName := util.Has(util.GetModuleName(ctx))
@@ -35,6 +38,15 @@ func (s *Secret) Get(ctx context.Context, client *kubernetes.Clientset) (*corev1
 }
 
 func (s *Secret) IsValid(ctx context.Context, secret *corev1.Secret) (bool, error) {
+	data, ok := secret.Data[secretKey]
+	if !ok {
+		return false, nil
+	}
+
+	if slices.Compare(data, s.value) != 0 {
+		return false, nil
+	}
+
 	return true, nil
 }
 
@@ -54,7 +66,7 @@ func (s *Secret) Create(ctx context.Context, client *kubernetes.Clientset) (*cor
 			Labels:    labels,
 		},
 		Data: map[string][]byte{
-			"value": s.value,
+			secretKey: s.value,
 		},
 		// TODO: make this configurable?
 		Type: corev1.SecretTypeOpaque,
