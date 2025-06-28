@@ -81,7 +81,8 @@ func (d *DB) CountDeploymentPages(ctx context.Context, environments []Environmen
 		return 0, err
 	}
 
-	return count/deploymentPageSize + 1, nil
+	pageCount := (count + deploymentPageSize - 1) / deploymentPageSize
+	return pageCount, nil
 }
 
 const deploymentPageSize = 10

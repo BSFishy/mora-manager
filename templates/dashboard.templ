@@ -157,7 +157,7 @@ templ DashboardDeployments(envs []model.Environment, deployments []model.Deploym
 					<td class={ styles.P(2) } hx-disable>
 						{ environmentName(envs, deployment.EnvironmentId) }
 					</td>
-					<td class={ styles.P(2) }>{ deployment.Status }</td>
+					<td class={ styles.P(2) }>{ statusToText[deployment.Status] }</td>
 				</tr>
 			}
 		</tbody>
