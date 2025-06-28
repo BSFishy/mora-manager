@@ -1,6 +1,7 @@
 package templates
 
 import "github.com/BSFishy/mora-manager/templates/styles"
+import "fmt"
 
 templ textInput(attrs templ.Attributes) {
 	@input("text", attrs)
@@ -19,25 +20,72 @@ templ input(inputType string, attrs templ.Attributes) {
 }
 
 var buttonStyles = templ.CSSClasses{
-	styles.CursorPointer(),
-	styles.Bg(styles.Emerald[600]),
 	styles.Px(4),
 	styles.Py(2),
 	styles.Rounded(styles.Radius["md"]),
-	styles.Color(styles.Emerald[50]),
 	styles.Weight("bold"),
 	styles.Button(),
 }
 
+var variants = map[string]templ.CSSClasses{
+	"default": templ.CSSClasses{
+		styles.CursorPointer(),
+		styles.BorderWidth("1px"),
+		styles.Bg(styles.Emerald[600]),
+		styles.Color(styles.Emerald[50]),
+	},
+	"inverted": templ.CSSClasses{
+		styles.CursorPointer(),
+		styles.BorderColor(styles.Emerald[600]),
+		styles.BorderWidth("1px"),
+		styles.Color(styles.Emerald[600]),
+	},
+	"disabled": templ.CSSClasses{
+		styles.CursorDefault(),
+		styles.BorderWidth("1px"),
+		styles.Bg(styles.Slate[300]),
+		styles.Color(styles.Emerald[50]),
+	},
+}
+
+func submitStyles(variant any) templ.CSSClasses {
+	if variant == nil {
+		variant = "default"
+	}
+
+	variantStr, ok := variant.(string)
+	if !ok {
+		panic(fmt.Sprintf("invalid variant type: %T", variant))
+	}
+
+	classes, ok := variants[variantStr]
+	if !ok {
+		panic(fmt.Sprintf("invalid variant: %s", variant))
+	}
+
+	classes = append(classes, buttonStyles...)
+
+	return classes
+}
+
+func cleanLinkArgs(attrs templ.Attributes) templ.Attributes {
+	if attrs["variant"] == "disabled" {
+		delete(attrs, "href")
+	}
+
+	return attrs
+}
+
 templ submit(attrs templ.Attributes) {
 	if attrs["type"] == "link" {
-		<a hx-boost="true" class={ buttonStyles, attrs["class"] } role="button" { attrs... }>
+		<a hx-boost="true" class={ submitStyles(attrs["variant"]), attrs["class"] } role="button" { cleanLinkArgs(attrs)... }>
 			{ children... }
 		</a>
 	} else {
 		<button
 			type="submit"
-			class={ buttonStyles, attrs["class"] }
+			class={ submitStyles(attrs["variant"]), attrs["class"] }
+			disabled={ attrs["variant"] == "disabled" }
 			{ attrs... }
 		>
 			{ children... }

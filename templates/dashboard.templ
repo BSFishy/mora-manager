@@ -11,6 +11,8 @@ type DashboardProps struct {
 	User         *model.User
 	Environments []model.Environment
 	Deployments  []model.Deployment
+	TotalPages   int
+	Page         int
 }
 
 templ Dashboard(props DashboardProps) {
@@ -34,10 +36,10 @@ templ Dashboard(props DashboardProps) {
 					<div
 						id="deployments"
 						hx-history="false"
-						hx-get="/htmx/deployment"
+						hx-get={ fmt.Sprintf("/htmx/deployment?page=%d", props.Page) }
 						hx-trigger="every 2s"
 					>
-						@DashboardDeployments(props.Environments, props.Deployments)
+						@DashboardDeployments(props.Environments, props.Deployments, props.TotalPages, props.Page)
 					</div>
 				}
 			</div>
@@ -94,7 +96,23 @@ func environmentName(envs []model.Environment, id string) string {
 	panic("uh oh")
 }
 
-templ DashboardDeployments(envs []model.Environment, deployments []model.Deployment) {
+func prevButtonVariant(page int) string {
+	if page == 1 {
+		return "disabled"
+	}
+
+	return "inverted"
+}
+
+func nextButtonVariant(totalPages, page int) string {
+	if page == totalPages {
+		return "disabled"
+	}
+
+	return "inverted"
+}
+
+templ DashboardDeployments(envs []model.Environment, deployments []model.Deployment, totalPages int, page int) {
 	<table>
 		<thead>
 			<tr>
@@ -120,7 +138,7 @@ templ DashboardDeployments(envs []model.Environment, deployments []model.Deploym
 					hours = hours % 12;
 					if (hours === 0) hours = 12;
 
-					el.textContent = `${month} ${day} ${hours}:${minutes}${ampm}`;
+					el.htmlContent = `<pre>${month} ${day} ${hours}:${minutes}${ampm}</pre>`;
 				});
 			</script>
 			for _, deployment := range deployments {
@@ -128,11 +146,13 @@ templ DashboardDeployments(envs []model.Environment, deployments []model.Deploym
 					<td
 						class={ styles.P(2), "timed" }
 						data-dt={ deployment.CreatedAt.Format(time.RFC3339) }
-					>{ deployment.CreatedAt.Format("Jan _2 3:04PM") }</td>
+					><pre>{ deployment.CreatedAt.Format("Jan _2 3:04PM") }</pre></td>
 					<td class={ styles.P(2) }>
-						@link(templ.Attributes{"href": fmt.Sprintf("/deployment/%s", deployment.Id)}) {
-							{ deployment.Id }
-						}
+						<pre>
+							@link(templ.Attributes{"href": fmt.Sprintf("/deployment/%s", deployment.Id)}) {
+								{ deployment.Id }
+							}
+						</pre>
 					</td>
 					<td class={ styles.P(2) } hx-disable>
 						{ environmentName(envs, deployment.EnvironmentId) }
@@ -142,4 +162,13 @@ templ DashboardDeployments(envs []model.Environment, deployments []model.Deploym
 			}
 		</tbody>
 	</table>
+	@submit(templ.Attributes{"type": "link", "variant": prevButtonVariant(page), "href": fmt.Sprintf("/dashboard?page=%d", page-1)}) {
+		&lt;
+	}
+	<span class={ styles.Mx(2) }>
+		Page { page }
+	</span>
+	@submit(templ.Attributes{"type": "link", "variant": nextButtonVariant(totalPages, page), "href": fmt.Sprintf("/dashboard?page=%d", page+1)}) {
+		&gt;
+	}
 }

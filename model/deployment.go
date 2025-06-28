@@ -61,7 +61,32 @@ func (e *Environment) CancelInProgressDeployments(ctx context.Context, d *DB) er
 	return err
 }
 
-func (d *DB) GetDeployments(ctx context.Context, environments []Environment) ([]Deployment, error) {
+func (d *DB) CountDeploymentPages(ctx context.Context, environments []Environment) (int, error) {
+	if len(environments) < 1 {
+		return 0, nil
+	}
+
+	environmentIds := make([]string, len(environments))
+	for i, env := range environments {
+		environmentIds[i] = fmt.Sprintf("'%s'", env.Id)
+	}
+
+	query := fmt.Sprintf(`SELECT COUNT(*)
+		FROM deployments
+		WHERE environment_id IN (%s)`, strings.Join(environmentIds, ", "))
+
+	var count int
+	err := d.db.QueryRowContext(ctx, query).Scan(&count)
+	if err != nil {
+		return 0, err
+	}
+
+	return count/deploymentPageSize + 1, nil
+}
+
+const deploymentPageSize = 10
+
+func (d *DB) GetDeployments(ctx context.Context, environments []Environment, page int) ([]Deployment, error) {
 	if len(environments) < 1 {
 		return []Deployment{}, nil
 	}
@@ -71,8 +96,12 @@ func (d *DB) GetDeployments(ctx context.Context, environments []Environment) ([]
 		environmentIds[i] = fmt.Sprintf("'%s'", env.Id)
 	}
 
-	query := fmt.Sprintf("SELECT id, environment_id, status, created_at, updated_at FROM deployments WHERE environment_id IN (%s) ORDER BY created_at DESC", strings.Join(environmentIds, ", "))
-	rows, err := d.db.QueryContext(ctx, query)
+	query := fmt.Sprintf(`SELECT id, environment_id, status, created_at, updated_at
+		FROM deployments
+		WHERE environment_id IN (%s)
+		ORDER BY created_at DESC
+		LIMIT %d OFFSET $1`, strings.Join(environmentIds, ", "), deploymentPageSize)
+	rows, err := d.db.QueryContext(ctx, query, page*deploymentPageSize)
 	if err != nil {
 		return nil, fmt.Errorf("selecting rows: %w", err)
 	}
