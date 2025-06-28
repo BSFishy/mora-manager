@@ -6,6 +6,20 @@ import (
 	"github.com/BSFishy/mora-manager/templates/styles"
 )
 
+var pktit = map[config.PointKind]string{
+	config.String: "text",
+	config.Secret: "password",
+}
+
+func pointKindToInputType(kind config.PointKind) string {
+	inputType, ok := pktit[kind]
+	if !ok {
+		panic(fmt.Sprintf("invalid point kind: %s", kind))
+	}
+
+	return inputType
+}
+
 templ Deployment(id string, configPoints []config.Point) {
 	@layout("Deployment") {
 		<div
@@ -27,7 +41,7 @@ templ Deployment(id string, configPoints []config.Point) {
 							if point.Description != nil {
 								<p hx-disable>{ *point.Description }</p>
 							}
-							@textInput(templ.Attributes{"name": "value", "class": templ.Classes(styles.W("100%"))})
+							@input(pointKindToInputType(point.Kind), templ.Attributes{"name": "value", "class": templ.Classes(styles.W("100%"))})
 						</div>
 					}
 					@submit(templ.Attributes{}) {

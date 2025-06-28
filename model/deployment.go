@@ -129,10 +129,11 @@ func (d *Deployment) UpdateStatus(ctx context.Context, tx *sql.Tx, status Deploy
 	return err
 }
 
+// need to be careful about where this is called. it SHOULD primarily be in a
+// transaction or to update error status.
 func (d *Deployment) UpdateStatusDb(ctx context.Context, db *DB, status DeploymentStatus) error {
-	return db.Transact(ctx, func(tx *sql.Tx) error {
-		return d.UpdateStatus(ctx, tx, status)
-	})
+	_, err := db.db.ExecContext(ctx, "UPDATE deployments SET status = $1, updated_at = now() WHERE id = $2", status, d.Id)
+	return err
 }
 
 func (d *Deployment) UpdateState(ctx context.Context, tx *sql.Tx, state any) error {

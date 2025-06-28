@@ -1,5 +1,7 @@
 package state
 
+import "github.com/BSFishy/mora-manager/config"
+
 type State struct {
 	Configs      []StateConfig
 	ServiceIndex int
@@ -11,11 +13,11 @@ type ServiceRef struct {
 	Service string
 }
 
-// TODO: this structure sucks. it needs to be changed to something more useful
 type StateConfig struct {
 	ModuleName string
 	Name       string
-	Value      string
+	Kind       config.PointKind
+	Value      []byte
 }
 
 func (s *State) FindConfig(moduleName, name string) *StateConfig {

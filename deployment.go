@@ -10,12 +10,14 @@ import (
 
 	"github.com/BSFishy/mora-manager/config"
 	"github.com/BSFishy/mora-manager/expr"
+	"github.com/BSFishy/mora-manager/kube"
 	"github.com/BSFishy/mora-manager/model"
 	"github.com/BSFishy/mora-manager/router"
 	statepkg "github.com/BSFishy/mora-manager/state"
 	"github.com/BSFishy/mora-manager/templates"
 	"github.com/BSFishy/mora-manager/util"
 	"github.com/BSFishy/mora-manager/value"
+	v1 "k8s.io/api/core/v1"
 )
 
 type ApiConfig struct {
@@ -325,6 +327,8 @@ func (a *App) updateDeploymentConfigHtmxRoute(w http.ResponseWriter, r *http.Req
 		return nil
 	}
 
+	ctx = model.WithEnvironment(ctx, env)
+
 	err = a.db.Transact(ctx, func(tx *sql.Tx) error {
 		err := d.Lock(ctx, tx)
 		if err != nil {
@@ -355,18 +359,40 @@ func (a *App) updateDeploymentConfigHtmxRoute(w http.ResponseWriter, r *http.Req
 		for i := range moduleNames {
 			moduleName := moduleNames[i]
 			identifier := identifiers[i]
-			v := values[i]
+			v := []byte(values[i])
 
-			if c := cfg.FindConfig(moduleName, identifier); c == nil {
+			ctx := util.WithModuleName(ctx, moduleName)
+
+			c := cfg.FindConfig(moduleName, identifier)
+			if c == nil {
 				w.WriteHeader(http.StatusBadRequest)
 				return nil
 			}
 
-			state.Configs = append(state.Configs, statepkg.StateConfig{
-				ModuleName: moduleName,
-				Name:       identifier,
-				Value:      v,
-			})
+			if c.Kind == config.Secret {
+				secret := kube.NewSecret(ctx, identifier, v)
+				deployment := kube.MaterializedService{
+					Secrets: []kube.Resource[v1.Secret]{secret},
+				}
+
+				if err = deployment.Deploy(ctx, a.clientset); err != nil {
+					return err
+				}
+
+				state.Configs = append(state.Configs, statepkg.StateConfig{
+					ModuleName: moduleName,
+					Name:       identifier,
+					Kind:       config.Secret,
+					Value:      []byte(secret.Name()),
+				})
+			} else {
+				state.Configs = append(state.Configs, statepkg.StateConfig{
+					ModuleName: moduleName,
+					Name:       identifier,
+					Kind:       config.String,
+					Value:      v,
+				})
+			}
 		}
 
 		if err := d.UpdateState(ctx, tx, state); err != nil {

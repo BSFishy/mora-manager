@@ -50,7 +50,7 @@ func (a *App) deploy(d *model.Deployment) {
 			return errors.New("deployment not in valid state")
 		}
 
-		if err = d.UpdateStatus(ctx, tx, model.InProgress); err != nil {
+		if err = d.UpdateStatusDb(ctx, a.db, model.InProgress); err != nil {
 			return fmt.Errorf("updating status: %w", err)
 		}
 

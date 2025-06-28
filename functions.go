@@ -45,7 +45,13 @@ func evaluateConfigFunction(ctx context.Context, args expr.Args) (value.Value, [
 	state := util.Has(GetState(ctx))
 	stateConfig := state.FindConfig(moduleName, identifier)
 	if stateConfig != nil {
-		return value.NewString(stateConfig.Value), []config.Point{}, nil
+		if stateConfig.Kind == config.String {
+			return value.NewString(string(stateConfig.Value)), nil, nil
+		} else if stateConfig.Kind == config.Secret {
+			return value.NewSecret(string(stateConfig.Value)), nil, nil
+		} else {
+			return nil, nil, fmt.Errorf("invalid config kind: %s", stateConfig.Kind)
+		}
 	}
 
 	cfg := util.Has(GetConfig(ctx))

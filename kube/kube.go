@@ -15,6 +15,7 @@ import (
 )
 
 type Resource[T any] interface {
+	Name() string
 	Get(context.Context, *kubernetes.Clientset) (*T, error)
 	IsValid(context.Context, *T) (bool, error)
 	Delete(context.Context, *kubernetes.Clientset) error
@@ -94,14 +95,17 @@ func matchLabels(ctx context.Context, extras map[string]string) map[string]strin
 	user := util.Has(model.GetUser(ctx))
 	env := util.Has(model.GetEnvironment(ctx))
 	moduleName := util.Has(util.GetModuleName(ctx))
-	serviceName := util.Has(util.GetServiceName(ctx))
 
 	labels := map[string]string{
 		"mora.enabled":     "true",
 		"mora.user":        user.Username,
 		"mora.environment": env.Slug,
 		"mora.module":      moduleName,
-		"mora.service":     serviceName,
+	}
+
+	serviceName, ok := util.GetServiceName(ctx)
+	if ok {
+		labels["mora.service"] = serviceName
 	}
 
 	maps.Copy(labels, extras)

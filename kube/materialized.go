@@ -11,9 +11,16 @@ import (
 type MaterializedService struct {
 	Deployments []Resource[appsv1.Deployment]
 	Services    []Resource[corev1.Service]
+	Secrets     []Resource[corev1.Secret]
 }
 
 func (m *MaterializedService) Deploy(ctx context.Context, client *kubernetes.Clientset) error {
+	for _, secret := range m.Secrets {
+		if err := Deploy(ctx, client, secret); err != nil {
+			return err
+		}
+	}
+
 	for _, deployment := range m.Deployments {
 		if err := Deploy(ctx, client, deployment); err != nil {
 			return err
