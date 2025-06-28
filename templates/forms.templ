@@ -76,6 +76,14 @@ func cleanLinkArgs(attrs templ.Attributes) templ.Attributes {
 	return attrs
 }
 
+func buttonArgs(attrs templ.Attributes) templ.Attributes {
+	if attrs["variant"] == "disabled" {
+		attrs["diabled"] = "true"
+	}
+
+	return attrs
+}
+
 templ submit(attrs templ.Attributes) {
 	if attrs["type"] == "link" {
 		<a hx-boost="true" class={ submitStyles(attrs["variant"]), attrs["class"] } role="button" { cleanLinkArgs(attrs)... }>
@@ -85,8 +93,7 @@ templ submit(attrs templ.Attributes) {
 		<button
 			type="submit"
 			class={ submitStyles(attrs["variant"]), attrs["class"] }
-			disabled={ attrs["variant"] == "disabled" }
-			{ attrs... }
+			{ buttonArgs(attrs)... }
 		>
 			{ children... }
 		</button>
