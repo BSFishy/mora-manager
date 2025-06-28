@@ -1,9 +1,64 @@
 package templates
 
 import "github.com/BSFishy/mora-manager/templates/styles"
+import "fmt"
 
 templ link(attrs templ.Attributes) {
 	<a hx-boost="true" class={ styles.Color(styles.Emerald[700]), styles.Weight("bold"), attrs["class"] } { attrs... }>
 		{ children... }
 	</a>
+}
+
+var pillClasses = templ.Classes(
+	styles.Px(3),
+	styles.Py(1),
+	styles.Rounded("9999px"),
+	styles.W("fit-content"),
+)
+
+var pillVariants = map[string]templ.CSSClasses{
+	"success": templ.Classes(
+		styles.Bg(styles.Emerald[700]),
+		styles.Color(styles.Emerald[50]),
+	),
+	"waiting": templ.Classes(
+		styles.Bg(styles.Sky[700]),
+		styles.Color(styles.Sky[50]),
+	),
+	"warning": templ.Classes(
+		styles.Bg(styles.Amber[700]),
+		styles.Color(styles.Amber[50]),
+	),
+	"error": templ.Classes(
+		styles.Bg(styles.Red[700]),
+		styles.Color(styles.Red[50]),
+	),
+}
+
+func pillClass(attrs templ.Attributes) templ.CSSClasses {
+	classes := pillClasses
+
+	variant, ok := attrs["variant"]
+	if !ok {
+		variant = "waiting"
+	}
+
+	variantStr, ok := variant.(string)
+	if !ok {
+		panic(fmt.Sprintf("invalid variant type: %T", variant))
+	}
+
+	variantClasses, ok := pillVariants[variantStr]
+	if !ok {
+		panic(fmt.Sprintf("invalid variant: %s", variantStr))
+	}
+
+	classes = append(classes, variantClasses...)
+	return classes
+}
+
+templ pill(attrs templ.Attributes) {
+	<span class={ pillClass(attrs), attrs["class"] } { attrs... }>
+		{ children... }
+	</span>
 }

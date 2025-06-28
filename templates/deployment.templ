@@ -3,6 +3,7 @@ package templates
 import (
 	"fmt"
 	"github.com/BSFishy/mora-manager/config"
+	"github.com/BSFishy/mora-manager/model"
 	"github.com/BSFishy/mora-manager/templates/styles"
 )
 
@@ -20,35 +21,137 @@ func pointKindToInputType(kind config.PointKind) string {
 	return inputType
 }
 
-templ Deployment(id string, configPoints []config.Point) {
+type DeploymentProps struct {
+	Id           string
+	Status       model.DeploymentStatus
+	ConfigPoints []config.Point
+}
+
+templ Deployment(props DeploymentProps) {
 	@layout("Deployment") {
 		<div
 			class={ styles.W("100vw"), styles.Minh("100vh"), styles.Flex(), styles.FlexCol(), styles.Align("center"), styles.Justify("center"), styles.Gap(2) }
 		>
-			@link(templ.Attributes{"href": "/dashboard"}) {
-				Home
-			}
-			if len(configPoints) > 0 {
-				<form
-					hx-post={ fmt.Sprintf("/htmx/deployment/%s/config", id) }
-					class={ styles.Flex(), styles.FlexCol(), styles.Align("center"), styles.Maxw("300px"), styles.Gap(2) }
-				>
-					for _, point := range configPoints {
-						<div>
-							<input type="hidden" name="module_name" value={ point.ModuleName }/>
-							<input type="hidden" name="identifier" value={ point.Identifier }/>
-							<h3 hx-disable class={ styles.TextSize("xl") }>{ point.Name }</h3>
-							if point.Description != nil {
-								<p hx-disable>{ *point.Description }</p>
-							}
-							@input(pointKindToInputType(point.Kind), templ.Attributes{"name": "value", "class": templ.Classes(styles.W("100%"))})
-						</div>
-					}
-					@submit(templ.Attributes{}) {
-						Submit
-					}
-				</form>
-			}
+			@deploymentPill(false, props.Status)
+			<div
+				class={ styles.Flex(), styles.FlexCol(), styles.Align("stretch"), styles.Justify("center"), styles.Maxw("900px") }
+			>
+				<h1 class={ styles.TextSize("3xl"), styles.Weight("bold"), styles.My(2), styles.TextAlign("center") }>Deployment <pre class={ styles.Display("inline-block") }>{ props.Id }</pre></h1>
+				@link(templ.Attributes{"href": "/dashboard", "class": templ.Classes(styles.TextAlign("center"))}) {
+					Home
+				}
+				@deploymentBody(props)
+			</div>
 		</div>
 	}
+}
+
+var statusToVariant = map[model.DeploymentStatus]string{
+	model.NotStarted: "waiting",
+	model.InProgress: "waiting",
+	model.Waiting:    "waiting",
+	model.Cancelled:  "warning",
+	model.Success:    "success",
+	model.Errored:    "error",
+}
+
+var statusToText = map[model.DeploymentStatus]string{
+	model.NotStarted: "Not started",
+	model.InProgress: "In progress",
+	model.Waiting:    "Waiting for input",
+	model.Cancelled:  "Cancelled",
+	model.Success:    "Success",
+	model.Errored:    "Errored",
+}
+
+templ DeploymentHtmx(props DeploymentProps) {
+	@deploymentPill(true, props.Status)
+	@deploymentBody(props)
+}
+
+func deploymentPillAttrs(oob bool, status model.DeploymentStatus) templ.Attributes {
+	attrs := templ.Attributes{"id": "deployment-pill", "variant": statusToVariant[status], "class": templ.Classes(styles.TextSize("lg"), styles.Weight("bold"))}
+	if oob {
+		attrs["hx-swap-oob"] = "true"
+	}
+
+	return attrs
+}
+
+templ deploymentPill(oob bool, status model.DeploymentStatus) {
+	@pill(deploymentPillAttrs(oob, status)) {
+		{ statusToText[status] }
+	}
+}
+
+var deploymentParagraphStyles = templ.Classes(styles.W("100%"), styles.TextAlign("center"), styles.My(2))
+
+func deploymentBodyHtmx(props DeploymentProps) templ.Attributes {
+	if props.Status != model.Waiting {
+		return templ.Attributes{
+			"hx-get":     fmt.Sprintf("/htmx/deployment/%s/status", props.Id),
+			"hx-trigger": "every 2s",
+			"hx-swap":    "outerHTML",
+		}
+	}
+
+	return nil
+}
+
+templ deploymentBody(props DeploymentProps) {
+	<div id="deployment-body" hx-history="false" class={ styles.P(4), styles.BorderWidth("2px"), styles.Rounded(styles.Radius["lg"]), styles.BorderColor(styles.Slate[300]), styles.My(2) } { deploymentBodyHtmx(props)... }>
+		switch props.Status {
+			case model.NotStarted:
+				<p class={ deploymentParagraphStyles }>
+					This deployment has not been started. I should give you an option to
+					start it now but I haven't implement that yet :3
+				</p>
+			case model.InProgress:
+				<p class={ deploymentParagraphStyles }>
+					This deployment is currently in progress. Services are actively being
+					deployed to the cluster. This page will automatically update when the
+					deployment finishes or when you need to provide input.
+				</p>
+			case model.Waiting:
+				@deploymentForm(props)
+			case model.Cancelled:
+				<p class={ deploymentParagraphStyles }>This deployment was cancelled to start a new deployment.</p>
+			case model.Success:
+				<p class={ deploymentParagraphStyles }>
+					This deployment was successful. If no deployments have succeeded it,
+					this deployment's changes will be active.
+				</p>
+			case model.Errored:
+				<p class={ deploymentParagraphStyles }>
+					This deployment contained an error. If you are not the admin, ask an
+					admin to review the logs to determine what the error was. If you are an
+					admin, you can check the Runway logs to see what went wrong.
+				</p>
+		}
+	</div>
+}
+
+templ deploymentForm(props DeploymentProps) {
+	<form
+		hx-target="#deployment-body"
+		hx-swap="outerHTML"
+		hx-post={ fmt.Sprintf("/htmx/deployment/%s/config", props.Id) }
+		class={ styles.Flex(), styles.FlexCol(), styles.Align("stretch"), styles.Gap(2), }
+	>
+		<h2 class={ styles.TextSize("2xl"), styles.Weight("bold"), styles.TextAlign("center") }>Config</h2>
+		for _, point := range props.ConfigPoints {
+			<div class={ styles.My(2) }>
+				<input type="hidden" name="module_name" value={ point.ModuleName }/>
+				<input type="hidden" name="identifier" value={ point.Identifier }/>
+				<h3 hx-disable class={ styles.TextSize("xl"), styles.My(2) }>{ point.Name }</h3>
+				if point.Description != nil {
+					<p hx-disable class={ styles.My(1) }>{ *point.Description }</p>
+				}
+				@input(pointKindToInputType(point.Kind), templ.Attributes{"name": "value", "class": templ.Classes(styles.W("100%"), styles.My(2)), "placeholder": "Enter value here"})
+			</div>
+		}
+		@submit(templ.Attributes{}) {
+			Submit
+		}
+	</form>
 }

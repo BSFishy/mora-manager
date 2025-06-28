@@ -108,6 +108,7 @@ func main() {
 
 		r.RouteFunc("/deployment", func(r *router.Router) {
 			r.Use(app.userProtected).HandleGet("/", router.ErrorHandlerFunc(app.deploymentHtmxRoute))
+			r.Use(app.userProtected).HandleGet("/:id/status", router.ErrorHandlerFunc(app.deploymentStatusHtmxRoute))
 			r.Use(app.userProtected).HandlePost("/:id/config", router.ErrorHandlerFunc(app.updateDeploymentConfigHtmxRoute))
 		})
 

@@ -304,6 +304,19 @@ func (a *App) deploymentHtmxRoute(w http.ResponseWriter, r *http.Request) error 
 	return templates.DashboardDeployments(environments, deployments, totalPages, page).Render(ctx, w)
 }
 
+func (a *App) deploymentStatusHtmxRoute(w http.ResponseWriter, r *http.Request) error {
+	props, err := a.getDeploymentProps(w, r)
+	if err != nil {
+		return err
+	}
+
+	if props == nil {
+		return nil
+	}
+
+	return templates.DeploymentHtmx(*props).Render(r.Context(), w)
+}
+
 func (a *App) updateDeploymentConfigHtmxRoute(w http.ResponseWriter, r *http.Request) error {
 	ctx := r.Context()
 	logger := util.LogFromCtx(ctx)
@@ -409,7 +422,7 @@ func (a *App) updateDeploymentConfigHtmxRoute(w http.ResponseWriter, r *http.Req
 			}
 		}
 
-		if err := d.UpdateState(ctx, tx, state); err != nil {
+		if err := d.UpdateStateAndStatus(ctx, tx, model.InProgress, state); err != nil {
 			return fmt.Errorf("updating state: %w", err)
 		}
 
@@ -421,10 +434,19 @@ func (a *App) updateDeploymentConfigHtmxRoute(w http.ResponseWriter, r *http.Req
 
 	go a.deploy(d)
 
-	return nil
+	props, err := a.getDeploymentProps(w, r)
+	if err != nil {
+		return fmt.Errorf("getting props: %w", err)
+	}
+
+	if props == nil {
+		return nil
+	}
+
+	return templates.DeploymentHtmx(*props).Render(r.Context(), w)
 }
 
-func (a *App) deploymentPage(w http.ResponseWriter, r *http.Request) error {
+func (a *App) getDeploymentProps(w http.ResponseWriter, r *http.Request) (*templates.DeploymentProps, error) {
 	ctx := r.Context()
 	user, _ := model.GetUser(ctx)
 
@@ -435,31 +457,31 @@ func (a *App) deploymentPage(w http.ResponseWriter, r *http.Request) error {
 
 	deployment, err := a.db.GetDeployment(ctx, id)
 	if err != nil {
-		return fmt.Errorf("getting deployment: %w", err)
+		return nil, fmt.Errorf("getting deployment: %w", err)
 	}
 
 	if deployment == nil {
 		http.NotFound(w, r)
-		return nil
+		return nil, nil
 	}
 
 	environment, err := a.db.GetEnvironment(ctx, deployment.EnvironmentId)
 	if err != nil {
-		return fmt.Errorf("getting environment: %w", err)
+		return nil, fmt.Errorf("getting environment: %w", err)
 	}
 
 	ctx = model.WithEnvironment(ctx, environment)
 
 	if environment.UserId != user.Id {
 		http.NotFound(w, r)
-		return nil
+		return nil, nil
 	}
 
 	var configPoints []config.Point
 	if deployment.Status == model.Waiting {
 		var cfg Config
 		if err = json.Unmarshal(deployment.Config, &cfg); err != nil {
-			return fmt.Errorf("decoding config: %w", err)
+			return nil, fmt.Errorf("decoding config: %w", err)
 		}
 
 		ctx = WithConfig(ctx, &cfg)
@@ -467,7 +489,7 @@ func (a *App) deploymentPage(w http.ResponseWriter, r *http.Request) error {
 		var state statepkg.State
 		if deployment.State != nil {
 			if err = json.Unmarshal(*deployment.State, &state); err != nil {
-				return fmt.Errorf("decoding state: %w", err)
+				return nil, fmt.Errorf("decoding state: %w", err)
 			}
 		}
 
@@ -481,20 +503,20 @@ func (a *App) deploymentPage(w http.ResponseWriter, r *http.Request) error {
 
 			_, cfp, err := service.Evaluate(ctx)
 			if err != nil {
-				return fmt.Errorf("evaluating service: %w", err)
+				return nil, fmt.Errorf("evaluating service: %w", err)
 			}
 
 			configPoints = append(configPoints, cfp...)
 
 			wm, err := a.FindWingman(ctx)
 			if err != nil {
-				return fmt.Errorf("getting wingman: %w", err)
+				return nil, fmt.Errorf("getting wingman: %w", err)
 			}
 
 			if wm != nil {
 				cfp, err := wm.GetConfigPoints(ctx)
 				if err != nil {
-					return fmt.Errorf("getting wingman config points: %w", err)
+					return nil, fmt.Errorf("getting wingman config points: %w", err)
 				}
 
 				configPoints = append(configPoints, cfp...)
@@ -502,5 +524,22 @@ func (a *App) deploymentPage(w http.ResponseWriter, r *http.Request) error {
 		}
 	}
 
-	return templates.Deployment(deployment.Id, configPoints).Render(ctx, w)
+	return &templates.DeploymentProps{
+		Id:           deployment.Id,
+		Status:       deployment.Status,
+		ConfigPoints: configPoints,
+	}, nil
+}
+
+func (a *App) deploymentPage(w http.ResponseWriter, r *http.Request) error {
+	props, err := a.getDeploymentProps(w, r)
+	if err != nil {
+		return err
+	}
+
+	if props == nil {
+		return nil
+	}
+
+	return templates.Deployment(*props).Render(r.Context(), w)
 }
