@@ -301,8 +301,6 @@ func (a *App) deploymentHtmxRoute(w http.ResponseWriter, r *http.Request) error 
 		return fmt.Errorf("getting deployments: %w", err)
 	}
 
-	util.LogFromCtx(ctx).Info("here", "page", page, "totalPages", totalPages)
-
 	return templates.DashboardDeployments(environments, deployments, totalPages, page).Render(ctx, w)
 }
 
