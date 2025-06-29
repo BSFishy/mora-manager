@@ -21,28 +21,30 @@ const (
 )
 
 type Deployment struct {
-	Id            string
-	EnvironmentId string
-	Status        DeploymentStatus
-	Config        json.RawMessage
-	State         *json.RawMessage
+	Id                   string
+	EnvironmentId        string
+	PreviousDeploymentId *string
+	Status               DeploymentStatus
+	Config               json.RawMessage
+	State                *json.RawMessage
 
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
 
-func (e *Environment) NewDeployment(ctx context.Context, d *DB, config any, state any) (*Deployment, error) {
+func (e *Environment) NewDeployment(ctx context.Context, d *DB, previousId *string, config any) (*Deployment, error) {
 	rawConfig, err := json.Marshal(config)
 	if err != nil {
 		return nil, fmt.Errorf("marshalling config: %w", err)
 	}
 
 	deployment := Deployment{
-		EnvironmentId: e.Id,
-		Status:        NotStarted,
-		Config:        rawConfig,
+		EnvironmentId:        e.Id,
+		PreviousDeploymentId: previousId,
+		Status:               NotStarted,
+		Config:               rawConfig,
 	}
-	err = d.db.QueryRowContext(ctx, "INSERT INTO deployments (environment_id, status, config, state) VALUES ($1, $2, $3, $4) RETURNING id, created_at, updated_at", e.Id, NotStarted, rawConfig, state).Scan(&deployment.Id, &deployment.CreatedAt, &deployment.UpdatedAt)
+	err = d.db.QueryRowContext(ctx, "INSERT INTO deployments (environment_id, status, config, previous_deployment_id) VALUES ($1, $2, $3, $4) RETURNING id, created_at, updated_at", e.Id, NotStarted, rawConfig, previousId).Scan(&deployment.Id, &deployment.CreatedAt, &deployment.UpdatedAt)
 	if err == nil {
 		return &deployment, nil
 	}
@@ -66,7 +68,7 @@ func (e *Environment) GetLastDeployment(ctx context.Context, d *DB) (*Deployment
 		EnvironmentId: e.Id,
 	}
 
-	err := d.db.QueryRowContext(ctx, "SELECT id, status, config, state, created_at, updated_at FROM deployments WHERE environment_id = $1 ORDER BY created_at DESC LIMIT 1", e.Id).Scan(&deployment.Id, &deployment.Status, &deployment.Config, &deployment.State, &deployment.CreatedAt, &deployment.UpdatedAt)
+	err := d.db.QueryRowContext(ctx, "SELECT id, status, config, state, created_at, updated_at FROM deployments WHERE environment_id = $1 AND status = $2 ORDER BY created_at DESC LIMIT 1", e.Id, Success).Scan(&deployment.Id, &deployment.Status, &deployment.Config, &deployment.State, &deployment.CreatedAt, &deployment.UpdatedAt)
 	if err == nil {
 		return &deployment, nil
 	}
@@ -145,7 +147,7 @@ func (d *DB) GetDeployment(ctx context.Context, id string) (*Deployment, error) 
 		Id: id,
 	}
 
-	err := d.db.QueryRowContext(ctx, "SELECT environment_id, status, config, state, created_at, updated_at FROM deployments WHERE id = $1", id).Scan(&deployment.EnvironmentId, &deployment.Status, &deployment.Config, &deployment.State, &deployment.CreatedAt, &deployment.UpdatedAt)
+	err := d.db.QueryRowContext(ctx, "SELECT environment_id, previous_deployment_id, status, config, state, created_at, updated_at FROM deployments WHERE id = $1", id).Scan(&deployment.EnvironmentId, &deployment.PreviousDeploymentId, &deployment.Status, &deployment.Config, &deployment.State, &deployment.CreatedAt, &deployment.UpdatedAt)
 	if err == nil {
 		return &deployment, nil
 	}

@@ -25,6 +25,7 @@ type DeploymentProps struct {
 	Id           string
 	Status       model.DeploymentStatus
 	ConfigPoints []config.Point
+	Values       []string
 }
 
 templ Deployment(props DeploymentProps) {
@@ -139,15 +140,17 @@ templ deploymentForm(props DeploymentProps) {
 		class={ styles.Flex(), styles.FlexCol(), styles.Align("stretch"), styles.Gap(2), }
 	>
 		<h2 class={ styles.TextSize("2xl"), styles.Weight("bold"), styles.TextAlign("center") }>Config</h2>
-		for _, point := range props.ConfigPoints {
+		for i, point := range props.ConfigPoints {
 			<div class={ styles.My(2) }>
 				<input type="hidden" name="module_name" value={ point.ModuleName }/>
 				<input type="hidden" name="identifier" value={ point.Identifier }/>
 				<h3 hx-disable class={ styles.TextSize("xl"), styles.My(2) }>{ point.Name }</h3>
 				if point.Description != nil {
-					<p hx-disable class={ styles.My(1) }>{ *point.Description }</p>
+					<p hx-disable class={ styles.My(1) }>
+						@templ.Raw(*point.Description)
+					</p>
 				}
-				@input(pointKindToInputType(point.Kind), templ.Attributes{"name": "value", "class": templ.Classes(styles.W("100%"), styles.My(2)), "placeholder": "Enter value here"})
+				@input(pointKindToInputType(point.Kind), templ.Attributes{"name": "value", "class": templ.Classes(styles.W("100%"), styles.My(2)), "placeholder": "Enter value here", "value": props.Values[i]})
 			</div>
 		}
 		@submit(templ.Attributes{}) {

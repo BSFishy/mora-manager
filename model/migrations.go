@@ -62,6 +62,7 @@ var migrations = map[string]string{
 	CREATE TABLE deployments (
 		id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 		environment_id UUID NOT NULL,
+		previous_deployment_id UUID,
 		status TEXT NOT NULL,
 		config JSONB NOT NULL,
 		state JSONB,
@@ -69,7 +70,8 @@ var migrations = map[string]string{
 		created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
 		updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
 
-		FOREIGN KEY (environment_id) REFERENCES environments(id)
+		FOREIGN KEY (environment_id) REFERENCES environments(id),
+		FOREIGN KEY (previous_deployment_id) REFERENCES deployments(id)
 	);`,
 }
 

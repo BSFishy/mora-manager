@@ -266,15 +266,15 @@ func (a *App) createDeployment(w http.ResponseWriter, req *http.Request) error {
 		return fmt.Errorf("getting previous deployment: %w", err)
 	}
 
-	var state *json.RawMessage
+	var previousDeploymentId *string
 	if previousDeployment != nil {
-		state = previousDeployment.State
+		previousDeploymentId = &previousDeployment.Id
 	}
 
-	deployment, err := environment.NewDeployment(ctx, a.db, Config{
+	deployment, err := environment.NewDeployment(ctx, a.db, previousDeploymentId, Config{
 		Services: services,
 		Configs:  configs,
-	}, state)
+	})
 	if err != nil {
 		return fmt.Errorf("creating deployment: %w", err)
 	}
@@ -482,6 +482,14 @@ func (a *App) getDeploymentProps(w http.ResponseWriter, r *http.Request) (*templ
 		return nil, fmt.Errorf("getting environment: %w", err)
 	}
 
+	var previousDeployment *model.Deployment
+	if deployment.PreviousDeploymentId != nil {
+		previousDeployment, err = a.db.GetDeployment(ctx, *deployment.PreviousDeploymentId)
+		if err != nil {
+			return nil, fmt.Errorf("getting previous deployment: %w", err)
+		}
+	}
+
 	ctx = model.WithEnvironment(ctx, environment)
 
 	if environment.UserId != user.Id {
@@ -490,6 +498,7 @@ func (a *App) getDeploymentProps(w http.ResponseWriter, r *http.Request) (*templ
 	}
 
 	var configPoints []config.Point
+	var values []string
 	if deployment.Status == model.Waiting {
 		var cfg Config
 		if err = json.Unmarshal(deployment.Config, &cfg); err != nil {
@@ -507,6 +516,13 @@ func (a *App) getDeploymentProps(w http.ResponseWriter, r *http.Request) (*templ
 
 		ctx = WithState(ctx, &state)
 
+		var previousState statepkg.State
+		if previousDeployment != nil && previousDeployment.State != nil {
+			if err = json.Unmarshal(*previousDeployment.State, &previousState); err != nil {
+				return nil, fmt.Errorf("decoding previous state: %w", err)
+			}
+		}
+
 		services := cfg.Services[state.ServiceIndex:]
 		if len(services) > 0 {
 			service := services[0]
@@ -519,6 +535,18 @@ func (a *App) getDeploymentProps(w http.ResponseWriter, r *http.Request) (*templ
 			}
 
 			configPoints = append(configPoints, cfp...)
+			for _, point := range cfp {
+				stateValue := previousState.FindConfig(point.ModuleName, point.Identifier)
+				if stateValue != nil {
+					if stateValue.Kind == config.Secret {
+						values = append(values, "")
+					} else {
+						values = append(values, string(stateValue.Value))
+					}
+				} else {
+					values = append(values, "")
+				}
+			}
 
 			wm, err := a.FindWingman(ctx)
 			if err != nil {
@@ -532,6 +560,18 @@ func (a *App) getDeploymentProps(w http.ResponseWriter, r *http.Request) (*templ
 				}
 
 				configPoints = append(configPoints, cfp...)
+				for _, point := range cfp {
+					stateValue := previousState.FindConfig(point.ModuleName, point.Identifier)
+					if stateValue != nil {
+						if stateValue.Kind == config.Secret {
+							values = append(values, "")
+						} else {
+							values = append(values, string(stateValue.Value))
+						}
+					} else {
+						values = append(values, "")
+					}
+				}
 			}
 		}
 	}
@@ -540,6 +580,7 @@ func (a *App) getDeploymentProps(w http.ResponseWriter, r *http.Request) (*templ
 		Id:           deployment.Id,
 		Status:       deployment.Status,
 		ConfigPoints: configPoints,
+		Values:       values,
 	}, nil
 }
 
