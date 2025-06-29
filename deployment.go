@@ -368,6 +368,14 @@ func (a *App) updateDeploymentConfigHtmxRoute(w http.ResponseWriter, r *http.Req
 
 	ctx = model.WithEnvironment(ctx, env)
 
+	var previousDeployment *model.Deployment
+	if d.PreviousDeploymentId != nil {
+		previousDeployment, err = a.db.GetDeployment(ctx, *d.PreviousDeploymentId)
+		if err != nil {
+			return fmt.Errorf("getting previous deployment: %w", err)
+		}
+	}
+
 	err = a.db.Transact(ctx, func(tx *sql.Tx) error {
 		err := d.Lock(ctx, tx)
 		if err != nil {
@@ -377,8 +385,9 @@ func (a *App) updateDeploymentConfigHtmxRoute(w http.ResponseWriter, r *http.Req
 		moduleNames := r.Form["module_name"]
 		identifiers := r.Form["identifier"]
 		values := r.Form["value"]
+		inherits := r.Form["inherit"]
 
-		if len(moduleNames) != len(identifiers) || len(moduleNames) != len(values) {
+		if len(moduleNames) != len(identifiers) || len(moduleNames) != len(values) || len(moduleNames) != len(inherits) {
 			w.WriteHeader(http.StatusBadRequest)
 			return nil
 		}
@@ -395,10 +404,18 @@ func (a *App) updateDeploymentConfigHtmxRoute(w http.ResponseWriter, r *http.Req
 			}
 		}
 
+		var previousState statepkg.State
+		if previousDeployment != nil && previousDeployment.State != nil {
+			if err := json.Unmarshal(*previousDeployment.State, &previousState); err != nil {
+				return fmt.Errorf("decoding previous state: %w", err)
+			}
+		}
+
 		for i := range moduleNames {
 			moduleName := moduleNames[i]
 			identifier := identifiers[i]
 			v := []byte(values[i])
+			inherit := inherits[i]
 
 			ctx := util.WithModuleName(ctx, moduleName)
 
@@ -406,6 +423,17 @@ func (a *App) updateDeploymentConfigHtmxRoute(w http.ResponseWriter, r *http.Req
 			if c == nil {
 				w.WriteHeader(http.StatusBadRequest)
 				return nil
+			}
+
+			if inherit == "true" {
+				previousValue := previousState.FindConfig(moduleName, identifier)
+				if previousValue == nil {
+					return fmt.Errorf("failed to find %s/%s in previous config", moduleName, identifier)
+				}
+
+				logger.Debug("inheriting config from previous deployment", "moduleName", moduleName, "identifier", identifier)
+				state.Configs = append(state.Configs, *previousValue)
+				continue
 			}
 
 			if c.Kind == config.Secret {
@@ -539,7 +567,7 @@ func (a *App) getDeploymentProps(w http.ResponseWriter, r *http.Request) (*templ
 				stateValue := previousState.FindConfig(point.ModuleName, point.Identifier)
 				if stateValue != nil {
 					if stateValue.Kind == config.Secret {
-						values = append(values, "")
+						values = append(values, "asdf")
 					} else {
 						values = append(values, string(stateValue.Value))
 					}
@@ -564,7 +592,7 @@ func (a *App) getDeploymentProps(w http.ResponseWriter, r *http.Request) (*templ
 					stateValue := previousState.FindConfig(point.ModuleName, point.Identifier)
 					if stateValue != nil {
 						if stateValue.Kind == config.Secret {
-							values = append(values, "")
+							values = append(values, "asdf")
 						} else {
 							values = append(values, string(stateValue.Value))
 						}

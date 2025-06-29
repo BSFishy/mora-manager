@@ -11,6 +11,11 @@ templ passwordInput(attrs templ.Attributes) {
 	@input("password", attrs)
 }
 
+css disabledInputStyles() {
+	background-color: { templ.SafeCSSProperty(styles.Slate[50]) };
+	border-color: { templ.SafeCSSProperty(styles.Slate[400]) };
+}
+
 templ input(inputType string, attrs templ.Attributes) {
 	<input
 		type={ inputType }

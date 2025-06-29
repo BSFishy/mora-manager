@@ -132,6 +132,32 @@ templ deploymentBody(props DeploymentProps) {
 	</div>
 }
 
+func pointValue(point config.Point, value string) string {
+	if point.Kind == config.Secret {
+		if value != "" {
+			return "aaaaa"
+		}
+	}
+
+	return value
+}
+
+func inheritAttrs(value string) templ.Attributes {
+	if value != "" {
+		return templ.Attributes{"checked": "true"}
+	}
+
+	return templ.Attributes{"disabled": true}
+}
+
+func inheritValue(value string) string {
+	if value == "" {
+		return "false"
+	}
+
+	return "true"
+}
+
 templ deploymentForm(props DeploymentProps) {
 	<form
 		hx-target="#deployment-body"
@@ -144,17 +170,74 @@ templ deploymentForm(props DeploymentProps) {
 			<div class={ styles.My(2) }>
 				<input type="hidden" name="module_name" value={ point.ModuleName }/>
 				<input type="hidden" name="identifier" value={ point.Identifier }/>
+				<input type="hidden" id={ fmt.Sprintf("%s-value", point.Identifier) } name="value" value={ props.Values[i] }/>
+				<input type="hidden" id={ fmt.Sprintf("%s-inherit", point.Identifier) } name="inherit" value={ inheritValue(props.Values[i]) }/>
 				<h3 hx-disable class={ styles.TextSize("xl"), styles.My(2) }>{ point.Name }</h3>
 				if point.Description != nil {
 					<p hx-disable class={ styles.My(1) }>
 						@templ.Raw(*point.Description)
 					</p>
 				}
-				@input(pointKindToInputType(point.Kind), templ.Attributes{"name": "value", "class": templ.Classes(styles.W("100%"), styles.My(2)), "placeholder": "Enter value here", "value": props.Values[i]})
+				@input(pointKindToInputType(point.Kind), templ.Attributes{"id": point.Identifier, "data-id": fmt.Sprintf("%s-value", point.Identifier), "class": templ.Classes(styles.W("100%"), styles.My(2), "input-value"), "placeholder": "Enter value here", "value": pointValue(point, props.Values[i])})
+				<label>
+					<input type="checkbox" class="inherit-box" data-id={ point.Identifier } data-value={ fmt.Sprintf("%s-inherit", point.Identifier) } { inheritAttrs(props.Values[i])... }/>
+					Inherit from previous deployment
+				</label>
 			</div>
 		}
 		@submit(templ.Attributes{}) {
 			Submit
 		}
+		<div styles="display: none" class={ disabledInputStyles() }></div>
+		<script>
+			(function() {
+				const className = {{ disabledInputStyles().ClassName() }};
+				document.querySelectorAll(".input-value").forEach(el => {
+					const id = el.dataset.id;
+					if (!id) return;
+
+					const target = document.getElementById(id);
+					if (!target) return;
+
+					target.value = el.value;
+
+					el.addEventListener("input", event => {
+						target.value = event.target.value;
+					});
+				});
+
+				document.querySelectorAll(".inherit-box").forEach(el => {
+					const id = el.dataset.id;
+					if (!id) return;
+
+					const valueId = el.dataset.value;
+					if (!valueId) return;
+
+					const input = document.getElementById(id);
+					if (!input) return;
+
+					const valueEl = document.getElementById(valueId);
+					if (!valueEl) return;
+
+					function toggle(value) {
+						input.disabled = value;
+						valueEl.value = value ? "true" : "false";
+
+						if (value) {
+							input.classList.add(className);
+						} else {
+							input.classList.remove(className);
+						}
+					}
+
+					if (el.checked) toggle(true);
+
+					el.addEventListener("change", event => {
+						const checked = event.target.checked;
+						toggle(checked);
+					});
+				});
+			})()
+		</script>
 	</form>
 }
