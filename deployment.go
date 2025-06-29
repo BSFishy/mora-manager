@@ -259,10 +259,22 @@ func (a *App) createDeployment(w http.ResponseWriter, req *http.Request) error {
 		return fmt.Errorf("flattening configs: %w", err)
 	}
 
+	// TODO: i should be able to configure whether i want to inherit the previous
+	// deployment's state
+	previousDeployment, err := environment.GetLastDeployment(ctx, a.db)
+	if err != nil {
+		return fmt.Errorf("getting previous deployment: %w", err)
+	}
+
+	var state *json.RawMessage
+	if previousDeployment != nil {
+		state = previousDeployment.State
+	}
+
 	deployment, err := environment.NewDeployment(ctx, a.db, Config{
 		Services: services,
 		Configs:  configs,
-	})
+	}, state)
 	if err != nil {
 		return fmt.Errorf("creating deployment: %w", err)
 	}

@@ -25,26 +25,26 @@ var buttonStyles = templ.CSSClasses{
 	styles.Rounded(styles.Radius["md"]),
 	styles.Weight("bold"),
 	styles.Button(),
+	styles.BorderWidth("1px"),
 }
 
 var variants = map[string]templ.CSSClasses{
 	"default": templ.CSSClasses{
 		styles.CursorPointer(),
-		styles.BorderWidth("1px"),
 		styles.Bg(styles.Emerald[600]),
 		styles.Color(styles.Emerald[50]),
+		styles.BorderColor("transparent"),
 	},
 	"inverted": templ.CSSClasses{
 		styles.CursorPointer(),
 		styles.BorderColor(styles.Emerald[600]),
-		styles.BorderWidth("1px"),
 		styles.Color(styles.Emerald[600]),
 	},
 	"disabled": templ.CSSClasses{
 		styles.CursorDefault(),
-		styles.BorderWidth("1px"),
 		styles.Bg(styles.Slate[300]),
 		styles.Color(styles.Emerald[50]),
+		styles.BorderColor("transparent"),
 	},
 }
 

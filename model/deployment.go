@@ -31,7 +31,7 @@ type Deployment struct {
 	UpdatedAt time.Time
 }
 
-func (e *Environment) NewDeployment(ctx context.Context, d *DB, config any) (*Deployment, error) {
+func (e *Environment) NewDeployment(ctx context.Context, d *DB, config any, state any) (*Deployment, error) {
 	rawConfig, err := json.Marshal(config)
 	if err != nil {
 		return nil, fmt.Errorf("marshalling config: %w", err)
@@ -42,7 +42,7 @@ func (e *Environment) NewDeployment(ctx context.Context, d *DB, config any) (*De
 		Status:        NotStarted,
 		Config:        rawConfig,
 	}
-	err = d.db.QueryRowContext(ctx, "INSERT INTO deployments (environment_id, status, config) VALUES ($1, $2, $3) RETURNING id, created_at, updated_at", e.Id, NotStarted, rawConfig).Scan(&deployment.Id, &deployment.CreatedAt, &deployment.UpdatedAt)
+	err = d.db.QueryRowContext(ctx, "INSERT INTO deployments (environment_id, status, config, state) VALUES ($1, $2, $3, $4) RETURNING id, created_at, updated_at", e.Id, NotStarted, rawConfig, state).Scan(&deployment.Id, &deployment.CreatedAt, &deployment.UpdatedAt)
 	if err == nil {
 		return &deployment, nil
 	}
@@ -59,6 +59,23 @@ func (e *Environment) NewDeployment(ctx context.Context, d *DB, config any) (*De
 func (e *Environment) CancelInProgressDeployments(ctx context.Context, d *DB) error {
 	_, err := d.db.ExecContext(ctx, "UPDATE deployments SET status = $1, updated_at = now() WHERE environment_id = $2 AND status IN ($3, $4, $5)", Cancelled, e.Id, NotStarted, InProgress, Waiting)
 	return err
+}
+
+func (e *Environment) GetLastDeployment(ctx context.Context, d *DB) (*Deployment, error) {
+	deployment := Deployment{
+		EnvironmentId: e.Id,
+	}
+
+	err := d.db.QueryRowContext(ctx, "SELECT id, status, config, state, created_at, updated_at FROM deployments WHERE environment_id = $1 ORDER BY created_at DESC LIMIT 1", e.Id).Scan(&deployment.Id, &deployment.Status, &deployment.Config, &deployment.State, &deployment.CreatedAt, &deployment.UpdatedAt)
+	if err == nil {
+		return &deployment, nil
+	}
+
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+
+	return nil, err
 }
 
 func (d *DB) CountDeploymentPages(ctx context.Context, environments []Environment) (int, error) {
