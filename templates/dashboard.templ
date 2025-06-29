@@ -123,24 +123,6 @@ templ DashboardDeployments(envs []model.Environment, deployments []model.Deploym
 			</tr>
 		</thead>
 		<tbody>
-			<script>
-				document.querySelectorAll(".timed").forEach(el => {
-					const iso = el.dataset.dt;
-					if (!iso) return;
-
-					const date = new Date(iso);
-
-					const month = date.toLocaleString(undefined, { month: "short" });
-					const day = date.getDate(); // no zero-padding
-					let hours = date.getHours();
-					const minutes = date.getMinutes().toString().padStart(2, "0");
-					const ampm = hours >= 12 ? "PM" : "AM";
-					hours = hours % 12;
-					if (hours === 0) hours = 12;
-
-					el.htmlContent = `<pre>${month} ${day} ${hours}:${minutes}${ampm}</pre>`;
-				});
-			</script>
 			for _, deployment := range deployments {
 				<tr class={ styles.BorderWidthTop("1px") }>
 					<td
@@ -160,6 +142,24 @@ templ DashboardDeployments(envs []model.Environment, deployments []model.Deploym
 					<td class={ styles.P(2) }>{ statusToText[deployment.Status] }</td>
 				</tr>
 			}
+			<script>
+				document.querySelectorAll(".timed").forEach(el => {
+					const iso = el.dataset.dt;
+					if (!iso) return;
+
+					const date = new Date(iso);
+
+					const month = date.toLocaleString(undefined, { month: "short" });
+					const day = date.getDate(); // no zero-padding
+					let hours = date.getHours();
+					const minutes = date.getMinutes().toString().padStart(2, "0");
+					const ampm = hours >= 12 ? "PM" : "AM";
+					hours = hours % 12;
+					if (hours === 0) hours = 12;
+
+					el.innerHTML = `<pre>${month} ${day} ${hours}:${minutes}${ampm}</pre>`;
+				});
+			</script>
 		</tbody>
 	</table>
 	@submit(templ.Attributes{"type": "link", "variant": prevButtonVariant(page), "href": fmt.Sprintf("/dashboard?page=%d", page-1)}) {

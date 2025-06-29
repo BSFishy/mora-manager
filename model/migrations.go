@@ -19,18 +19,18 @@ var migrations = map[string]string{
 		password TEXT NOT NULL,
 		admin BOOLEAN NOT NULL DEFAULT false,
 
-		created_at TIMESTAMP NOT NULL DEFAULT now(),
-		updated_at TIMESTAMP NOT NULL DEFAULT now(),
-		deleted_at TIMESTAMP
+		created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+		updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+		deleted_at TIMESTAMPTZ
 	);
 
 	CREATE TABLE tokens (
 		id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 		user_id UUID NOT NULL,
 
-		created_at TIMESTAMP NOT NULL DEFAULT now(),
-		updated_at TIMESTAMP NOT NULL DEFAULT now(),
-		deleted_at TIMESTAMP,
+		created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+		updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+		deleted_at TIMESTAMPTZ,
 
 	  FOREIGN KEY (user_id) REFERENCES users(id)
 	);
@@ -39,9 +39,9 @@ var migrations = map[string]string{
 		id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 		user_id UUID,
 
-		created_at TIMESTAMP NOT NULL DEFAULT now(),
-		updated_at TIMESTAMP NOT NULL DEFAULT now(),
-		deleted_at TIMESTAMP,
+		created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+		updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+		deleted_at TIMESTAMPTZ,
 
 		FOREIGN KEY (user_id) REFERENCES users(id)
 	);
@@ -52,9 +52,9 @@ var migrations = map[string]string{
 		name TEXT NOT NULL,
 		slug TEXT NOT NULL,
 
-		created_at TIMESTAMP NOT NULL DEFAULT now(),
-		updated_at TIMESTAMP NOT NULL DEFAULT now(),
-		deleted_at TIMESTAMP,
+		created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+		updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+		deleted_at TIMESTAMPTZ,
 
 		FOREIGN KEY (user_id) REFERENCES users(id)
 	);
@@ -66,8 +66,8 @@ var migrations = map[string]string{
 		config JSONB NOT NULL,
 		state JSONB,
 
-		created_at TIMESTAMP NOT NULL DEFAULT now(),
-		updated_at TIMESTAMP NOT NULL DEFAULT now(),
+		created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+		updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
 
 		FOREIGN KEY (environment_id) REFERENCES environments(id)
 	);`,
@@ -76,7 +76,7 @@ var migrations = map[string]string{
 func (d *DB) SetupMigrations(ctx context.Context) error {
 	_, err := d.db.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS schema_migrations (
 		version TEXT PRIMARY KEY,
-		applied_at TIMESTAMP NOT NULL DEFAULT now()
+		applied_at TIMESTAMPTZ NOT NULL DEFAULT now()
 	);`)
 	if err != nil {
 		return fmt.Errorf("creating the migrations table: %w", err)

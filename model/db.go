@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/BSFishy/mora-manager/util"
-	_ "github.com/lib/pq"
+	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
 var (
@@ -22,7 +22,7 @@ type DB struct {
 func NewDB() (*DB, error) {
 	// TODO: disable ssl mode?
 	connStr := fmt.Sprintf("postgres://%s:%s@%s/%s?sslmode=disable", USER, PASS, HOST, NAME)
-	db, err := sql.Open("postgres", connStr)
+	db, err := sql.Open("pgx", connStr)
 	if err != nil {
 		return nil, err
 	}

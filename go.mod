@@ -5,7 +5,7 @@ go 1.24.3
 require (
 	github.com/a-h/templ v0.3.865
 	github.com/google/go-containerregistry v0.20.6
-	github.com/lib/pq v1.10.9
+	github.com/jackc/pgx/v5 v5.7.5
 	golang.org/x/crypto v0.37.0
 	k8s.io/api v0.33.1
 	k8s.io/apimachinery v0.33.1
@@ -28,6 +28,9 @@ require (
 	github.com/google/gnostic-models v0.6.9 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
+	github.com/jackc/pgpassfile v1.0.0 // indirect
+	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
+	github.com/jackc/puddle/v2 v2.2.2 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/compress v1.18.0 // indirect
