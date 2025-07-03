@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/BSFishy/mora-manager/state"
+	"k8s.io/client-go/kubernetes"
 )
 
 type contextKey string
@@ -28,4 +29,15 @@ func WithState(ctx context.Context, state *state.State) context.Context {
 func GetState(ctx context.Context) (*state.State, bool) {
 	state, ok := ctx.Value(stateKey).(*state.State)
 	return state, ok
+}
+
+const clientsetKey contextKey = "clientset"
+
+func WithClientset(ctx context.Context, client *kubernetes.Clientset) context.Context {
+	return context.WithValue(ctx, clientsetKey, client)
+}
+
+func GetClientset(ctx context.Context) (*kubernetes.Clientset, bool) {
+	client, ok := ctx.Value(clientsetKey).(*kubernetes.Clientset)
+	return client, ok
 }

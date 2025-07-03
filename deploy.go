@@ -21,6 +21,7 @@ func (a *App) deploy(d *model.Deployment) {
 	logger = logger.With("deployment", d.Id, "environment", d.EnvironmentId)
 	ctx = util.WithLogger(ctx, logger)
 	ctx = expr.WithFunctionRegistry(ctx, a.registry)
+	ctx = WithClientset(ctx, a.clientset)
 
 	err := a.db.Transact(ctx, func(tx *sql.Tx) error {
 		err := d.Lock(ctx, tx)
@@ -82,6 +83,50 @@ func (a *App) deploy(d *model.Deployment) {
 			ctx = util.WithModuleName(ctx, service.ModuleName)
 			ctx = util.WithServiceName(ctx, service.ServiceName)
 
+			wm, configPoints, err := service.EvaluateWingman(ctx)
+			if err != nil {
+				return fmt.Errorf("evaluating wingman: %w", err)
+			}
+
+			if len(configPoints) > 0 {
+				if err = d.UpdateStateAndStatus(ctx, tx, model.Waiting, state); err != nil {
+					return fmt.Errorf("updating state: %w", err)
+				}
+
+				logger.Info("waiting for dynamic wingman config")
+				return nil
+			}
+
+			if wm != nil {
+				mwm := wm.MaterializeWingman(ctx)
+				if err = mwm.Deploy(ctx, a.clientset); err != nil {
+					return fmt.Errorf("deploying wingman: %w", err)
+				}
+
+				logger.Info("deployed wingman")
+
+				rwm, err := FindWingman(ctx)
+				if err != nil {
+					return fmt.Errorf("finding wingman: %w", err)
+				}
+
+				if rwm != nil {
+					cfp, err := rwm.GetConfigPoints(ctx)
+					if err != nil {
+						return fmt.Errorf("getting wingman config points: %w", err)
+					}
+
+					if len(cfp) > 0 {
+						if err = d.UpdateStateAndStatus(ctx, tx, model.Waiting, state); err != nil {
+							return fmt.Errorf("updating state: %w", err)
+						}
+
+						logger.Info("waiting for dynamic wingman config")
+						return nil
+					}
+				}
+			}
+
 			def, configPoints, err := service.Evaluate(ctx)
 			if err != nil {
 				return fmt.Errorf("evaluating service: %w", err)
@@ -94,46 +139,6 @@ func (a *App) deploy(d *model.Deployment) {
 
 				logger.Info("waiting for dynamic config")
 				return nil
-			}
-
-			if wm := def.MaterializeWingman(ctx); wm != nil {
-				if err = wm.Deploy(ctx, a.clientset); err != nil {
-					return fmt.Errorf("deploying wingman: %w", err)
-				}
-
-				logger.Info("deployed wingman")
-
-				rwm, err := a.FindWingman(ctx)
-				if err != nil {
-					return fmt.Errorf("finding wingman: %w", err)
-				}
-
-				if rwm != nil {
-					cfp, err := rwm.GetConfigPoints(ctx)
-					if err != nil {
-						return fmt.Errorf("getting wingman config points: %w", err)
-					}
-
-					// TODO: this feels wrong. why am i adding it to the config? i feel
-					// like this should just be something i add directly to the state and
-					// be good with it?
-					for _, point := range cfp {
-						cfg.Configs = append(cfg.Configs, point)
-					}
-
-					if len(cfp) > 0 {
-						if err = d.UpdateConfig(ctx, tx, cfg); err != nil {
-							return fmt.Errorf("updating config: %w", err)
-						}
-
-						if err = d.UpdateStateAndStatus(ctx, tx, model.Waiting, state); err != nil {
-							return fmt.Errorf("updating state: %w", err)
-						}
-
-						logger.Info("waiting for dynamic wingman config")
-						return nil
-					}
-				}
 			}
 
 			deployment := def.Materialize(ctx)

@@ -5,20 +5,28 @@ import (
 	"fmt"
 
 	"github.com/BSFishy/mora-manager/util"
+	"github.com/BSFishy/mora-manager/value"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
 
+type Env struct {
+	Name  string
+	Value value.Value
+}
+
+// TODO: need to make a new module so that i can pass a ServiceDefinition around
 type Deployment struct {
 	moduleName  string
 	serviceName string
 	image       string
+	env         []Env
 	isWingman   bool
 }
 
-func NewDeployment(ctx context.Context, image string, isWingman bool) Resource[appsv1.Deployment] {
+func NewDeployment(ctx context.Context, image string, env []Env, isWingman bool) Resource[appsv1.Deployment] {
 	moduleName := util.Has(util.GetModuleName(ctx))
 	serviceName := util.Has(util.GetServiceName(ctx))
 
@@ -26,6 +34,7 @@ func NewDeployment(ctx context.Context, image string, isWingman bool) Resource[a
 		moduleName:  moduleName,
 		serviceName: serviceName,
 		image:       image,
+		env:         env,
 		isWingman:   isWingman,
 	}
 }
@@ -54,6 +63,34 @@ func (d *Deployment) IsValid(ctx context.Context, deployment *appsv1.Deployment)
 		return false, nil
 	}
 
+	if len(container.Env) != len(d.env) {
+		return false, nil
+	}
+
+	for _, env := range d.env {
+		found := false
+		for _, ce := range container.Env {
+			if ce.Name == env.Name {
+				if env.Value.Kind() == value.Secret {
+					if ce.ValueFrom == nil || ce.ValueFrom.SecretKeyRef == nil || ce.ValueFrom.SecretKeyRef.Key != env.Value.String() {
+						return false, nil
+					}
+				} else {
+					if ce.Value != env.Value.String() {
+						return false, nil
+					}
+				}
+
+				found = true
+				break
+			}
+		}
+
+		if !found {
+			return false, nil
+		}
+	}
+
 	return true, nil
 }
 
@@ -65,6 +102,30 @@ func (d *Deployment) Create(ctx context.Context, clientset *kubernetes.Clientset
 	extras := map[string]string{}
 	if d.isWingman {
 		extras["mora.wingman"] = "true"
+	} else {
+		extras["mora.wingman"] = "false"
+	}
+
+	env := make([]corev1.EnvVar, len(d.env))
+	for i, e := range d.env {
+		if e.Value.Kind() == value.Secret {
+			env[i] = corev1.EnvVar{
+				Name: e.Name,
+				ValueFrom: &corev1.EnvVarSource{
+					SecretKeyRef: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: e.Value.String(),
+						},
+						Key: "value",
+					},
+				},
+			}
+		} else {
+			env[i] = corev1.EnvVar{
+				Name:  e.Name,
+				Value: e.Value.String(),
+			}
+		}
 	}
 
 	labels := matchLabels(ctx, extras)
@@ -88,6 +149,7 @@ func (d *Deployment) Create(ctx context.Context, clientset *kubernetes.Clientset
 						{
 							Name:  util.SanitizeDNS1123Label(d.Name()),
 							Image: d.image,
+							Env:   env,
 						},
 					},
 				},

@@ -23,7 +23,8 @@ type RunwayWingman struct {
 	Url    string
 }
 
-func (a *App) FindWingman(ctx context.Context) (wingman.Wingman, error) {
+func FindWingman(ctx context.Context) (wingman.Wingman, error) {
+	client := util.Has(GetClientset(ctx))
 	user := util.Has(model.GetUser(ctx))
 	environment := util.Has(model.GetEnvironment(ctx))
 	moduleName := util.Has(util.GetModuleName(ctx))
@@ -39,7 +40,7 @@ func (a *App) FindWingman(ctx context.Context) (wingman.Wingman, error) {
 		"mora.wingman":     "true",
 	})
 
-	services, err := a.clientset.CoreV1().Services(namespace).List(ctx, metav1.ListOptions{
+	services, err := client.CoreV1().Services(namespace).List(ctx, metav1.ListOptions{
 		LabelSelector: selector.String(),
 	})
 

@@ -34,3 +34,15 @@ func (p *Point) Fill(ctx context.Context) {
 		p.Kind = String
 	}
 }
+
+type Points []Point
+
+func (p Points) Find(moduleName, identifier string) *Point {
+	for _, point := range p {
+		if point.ModuleName == moduleName && point.Identifier == identifier {
+			return &point
+		}
+	}
+
+	return nil
+}

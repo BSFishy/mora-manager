@@ -39,7 +39,7 @@ func Must[T any](val T, err error) T {
 
 func Has[T any](val T, ok bool) T {
 	if !ok {
-		panic("expected value to exist")
+		panic(fmt.Sprintf("expected value of type %T to exist", val))
 	}
 
 	return val

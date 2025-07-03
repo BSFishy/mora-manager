@@ -95,11 +95,17 @@ type ApiWingman struct {
 	Image expr.Expression
 }
 
+type Env struct {
+	Name  string          `json:"name"`
+	Value expr.Expression `json:"value"`
+}
+
 type Service struct {
 	Name     string            `json:"name"`
 	Image    expr.Expression   `json:"image"`
 	Requires []expr.Expression `json:"requires"`
 	Wingman  *ApiWingman       `json:"wingman,omitempty"`
+	Env      []Env             `json:"env"`
 }
 
 func (s *Service) RequiredServices(ctx context.Context) ([]statepkg.ServiceRef, error) {
@@ -171,6 +177,7 @@ func (c *ApiConfig) TopologicalSort(ctx context.Context) ([]ServiceConfig, error
 				ModuleName:  module.Name,
 				ServiceName: service.Name,
 				Image:       service.Image,
+				Env:         service.Env,
 				Wingman:     wingman,
 			}
 
@@ -225,6 +232,7 @@ func (a *App) createDeployment(w http.ResponseWriter, req *http.Request) error {
 	user, _ := model.GetUser(ctx)
 
 	ctx = expr.WithFunctionRegistry(ctx, a.registry)
+	ctx = WithClientset(ctx, a.clientset)
 
 	params := router.Params(req)
 	environmentSlug := params["slug"]
@@ -340,6 +348,7 @@ func (a *App) updateDeploymentConfigHtmxRoute(w http.ResponseWriter, r *http.Req
 
 	logger = logger.With("deployment", id)
 	ctx = util.WithLogger(ctx, logger)
+	ctx = WithClientset(ctx, a.clientset)
 
 	if err := r.ParseForm(); err != nil {
 		return fmt.Errorf("parsing form: %w", err)
@@ -376,20 +385,20 @@ func (a *App) updateDeploymentConfigHtmxRoute(w http.ResponseWriter, r *http.Req
 		}
 	}
 
+	moduleNames := r.Form["module_name"]
+	identifiers := r.Form["identifier"]
+	values := r.Form["value"]
+	inherits := r.Form["inherit"]
+
+	if len(moduleNames) != len(identifiers) || len(moduleNames) != len(values) || len(moduleNames) != len(inherits) {
+		w.WriteHeader(http.StatusBadRequest)
+		return nil
+	}
+
 	err = a.db.Transact(ctx, func(tx *sql.Tx) error {
 		err := d.Lock(ctx, tx)
 		if err != nil {
 			return fmt.Errorf("taking deployment lock: %w", err)
-		}
-
-		moduleNames := r.Form["module_name"]
-		identifiers := r.Form["identifier"]
-		values := r.Form["value"]
-		inherits := r.Form["inherit"]
-
-		if len(moduleNames) != len(identifiers) || len(moduleNames) != len(values) || len(moduleNames) != len(inherits) {
-			w.WriteHeader(http.StatusBadRequest)
-			return nil
 		}
 
 		var cfg Config
@@ -397,12 +406,16 @@ func (a *App) updateDeploymentConfigHtmxRoute(w http.ResponseWriter, r *http.Req
 			return fmt.Errorf("decoding config: %w", err)
 		}
 
+		ctx := WithConfig(ctx, &cfg)
+
 		var state statepkg.State
 		if d.State != nil {
 			if err := json.Unmarshal(*d.State, &state); err != nil {
 				return fmt.Errorf("decoding state: %w", err)
 			}
 		}
+
+		ctx = WithState(ctx, &state)
 
 		var previousState statepkg.State
 		if previousDeployment != nil && previousDeployment.State != nil {
@@ -417,9 +430,26 @@ func (a *App) updateDeploymentConfigHtmxRoute(w http.ResponseWriter, r *http.Req
 			v := []byte(values[i])
 			inherit := inherits[i]
 
-			ctx := util.WithModuleName(ctx, moduleName)
+			services := cfg.Services[state.ServiceIndex:]
+			if len(services) < 1 {
+				return fmt.Errorf("invalid service to configure: %d", state.ServiceIndex)
+			}
 
-			c := cfg.FindConfig(moduleName, identifier)
+			service := services[0]
+			if service.ModuleName != moduleName {
+				w.WriteHeader(http.StatusBadRequest)
+				return nil
+			}
+
+			ctx := util.WithModuleName(ctx, moduleName)
+			ctx = util.WithServiceName(ctx, service.ServiceName)
+
+			cfps, err := service.FindConfigPoints(ctx)
+			if err != nil {
+				return fmt.Errorf("finding config points: %w", err)
+			}
+
+			c := cfps.Find(moduleName, identifier)
 			if c == nil {
 				w.WriteHeader(http.StatusBadRequest)
 				return nil
@@ -491,6 +521,7 @@ func (a *App) getDeploymentProps(w http.ResponseWriter, r *http.Request) (*templ
 	user, _ := model.GetUser(ctx)
 
 	ctx = expr.WithFunctionRegistry(ctx, a.registry)
+	ctx = WithClientset(ctx, a.clientset)
 
 	params := router.Params(r)
 	id := params["id"]
@@ -557,13 +588,12 @@ func (a *App) getDeploymentProps(w http.ResponseWriter, r *http.Request) (*templ
 			ctx := util.WithModuleName(ctx, service.ModuleName)
 			ctx = util.WithServiceName(ctx, service.ServiceName)
 
-			_, cfp, err := service.Evaluate(ctx)
+			configPoints, err = service.FindConfigPoints(ctx)
 			if err != nil {
-				return nil, fmt.Errorf("evaluating service: %w", err)
+				return nil, fmt.Errorf("finding config points: %w", err)
 			}
 
-			configPoints = append(configPoints, cfp...)
-			for _, point := range cfp {
+			for _, point := range configPoints {
 				stateValue := previousState.FindConfig(point.ModuleName, point.Identifier)
 				if stateValue != nil {
 					if stateValue.Kind == config.Secret {
@@ -573,32 +603,6 @@ func (a *App) getDeploymentProps(w http.ResponseWriter, r *http.Request) (*templ
 					}
 				} else {
 					values = append(values, "")
-				}
-			}
-
-			wm, err := a.FindWingman(ctx)
-			if err != nil {
-				return nil, fmt.Errorf("getting wingman: %w", err)
-			}
-
-			if wm != nil {
-				cfp, err := wm.GetConfigPoints(ctx)
-				if err != nil {
-					return nil, fmt.Errorf("getting wingman config points: %w", err)
-				}
-
-				configPoints = append(configPoints, cfp...)
-				for _, point := range cfp {
-					stateValue := previousState.FindConfig(point.ModuleName, point.Identifier)
-					if stateValue != nil {
-						if stateValue.Kind == config.Secret {
-							values = append(values, "asdf")
-						} else {
-							values = append(values, string(stateValue.Value))
-						}
-					} else {
-						values = append(values, "")
-					}
 				}
 			}
 		}

@@ -8,8 +8,6 @@ import (
 	"github.com/BSFishy/mora-manager/config"
 	"github.com/BSFishy/mora-manager/expr"
 	"github.com/BSFishy/mora-manager/kube"
-	"github.com/BSFishy/mora-manager/model"
-	"github.com/BSFishy/mora-manager/util"
 	"github.com/BSFishy/mora-manager/value"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -38,14 +36,77 @@ type ServiceConfig struct {
 	ModuleName  string
 	ServiceName string
 	Image       expr.Expression
+	Env         []Env
 
 	Wingman *ServiceWingman
 }
 
-func (s *ServiceConfig) Evaluate(ctx context.Context) (*ServiceDefinition, []config.Point, error) {
-	user := util.Has(model.GetUser(ctx))
-	environment := util.Has(model.GetEnvironment(ctx))
+func (s *ServiceConfig) FindConfigPoints(ctx context.Context) (config.Points, error) {
+	configPoints := []config.Point{}
 
+	if s.Wingman != nil {
+		_, cfp, err := s.EvaluateWingman(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("evaluating wingman: %w", err)
+		}
+
+		configPoints = append(configPoints, cfp...)
+
+		wm, err := FindWingman(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("getting wingman: %w", err)
+		}
+
+		if wm != nil {
+			cfp, err = wm.GetConfigPoints(ctx)
+			if err != nil {
+				return nil, fmt.Errorf("getting wingman config points: %w", err)
+			}
+
+			configPoints = append(configPoints, cfp...)
+		}
+	}
+
+	if len(configPoints) == 0 {
+		_, cfp, err := s.Evaluate(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("evaluating service: %w", err)
+		}
+
+		configPoints = append(configPoints, cfp...)
+	}
+
+	return configPoints, nil
+}
+
+func (s *ServiceConfig) EvaluateWingman(ctx context.Context) (*WingmanDefinition, []config.Point, error) {
+	if s.Wingman == nil {
+		return nil, nil, nil
+	}
+
+	configPoints := []config.Point{}
+
+	wingmanImage, wingmanImageCfp, err := s.Wingman.Image.Evaluate(ctx)
+	if err != nil {
+		return nil, nil, fmt.Errorf("evaluating wingman image: %w", err)
+	}
+
+	if wingmanImage.Kind() != value.String {
+		return nil, nil, errors.New("invalid wingman image property")
+	}
+
+	configPoints = append(configPoints, wingmanImageCfp...)
+
+	if len(configPoints) > 0 {
+		return nil, configPoints, nil
+	}
+
+	return &WingmanDefinition{
+		Image: wingmanImage.String(),
+	}, nil, nil
+}
+
+func (s *ServiceConfig) Evaluate(ctx context.Context) (*ServiceDefinition, []config.Point, error) {
 	configPoints := []config.Point{}
 
 	image, imageCfp, err := s.Image.Evaluate(ctx)
@@ -59,21 +120,27 @@ func (s *ServiceConfig) Evaluate(ctx context.Context) (*ServiceDefinition, []con
 
 	configPoints = append(configPoints, imageCfp...)
 
-	var wingman *WingmanDefinition
-	if s.Wingman != nil {
-		wingmanImage, wingmanImageCfp, err := s.Wingman.Image.Evaluate(ctx)
+	envs := []MaterializedEnv{}
+	for _, e := range s.Env {
+		ev, envCfp, err := e.Value.Evaluate(ctx)
 		if err != nil {
-			return nil, nil, fmt.Errorf("evaluating wingman image: %w", err)
+			return nil, nil, fmt.Errorf("evaluating env %s: %w", e.Name, err)
 		}
 
-		if wingmanImage.Kind() != value.String {
-			return nil, nil, errors.New("invalid wingman image property")
-		}
+		configPoints = append(configPoints, envCfp...)
 
-		configPoints = append(configPoints, wingmanImageCfp...)
-
-		wingman = &WingmanDefinition{
-			Image: wingmanImage.String(),
+		if len(envCfp) == 0 {
+			switch ev.Kind() {
+			case value.String:
+				fallthrough
+			case value.Secret:
+				envs = append(envs, MaterializedEnv{
+					Name:  e.Name,
+					Value: ev,
+				})
+			default:
+				return nil, nil, fmt.Errorf("invalid kind for env %s: %s", e.Name, ev.Kind())
+			}
 		}
 	}
 
@@ -82,13 +149,8 @@ func (s *ServiceConfig) Evaluate(ctx context.Context) (*ServiceDefinition, []con
 	}
 
 	return &ServiceDefinition{
-		User:        user.Username,
-		Environment: environment.Slug,
-		Module:      s.ModuleName,
-		Name:        s.ServiceName,
-		Image:       image.String(),
-
-		Wingman: wingman,
+		Image: image.String(),
+		Env:   envs,
 	}, configPoints, nil
 }
 
@@ -96,35 +158,39 @@ type WingmanDefinition struct {
 	Image string
 }
 
-type ServiceDefinition struct {
-	User        string
-	Environment string
-	Module      string
-	Name        string
-	Image       string
-
-	Wingman *WingmanDefinition
-}
-
-func (s *ServiceDefinition) Materialize(ctx context.Context) *kube.MaterializedService {
+func (w *WingmanDefinition) MaterializeWingman(ctx context.Context) *kube.MaterializedService {
 	return &kube.MaterializedService{
 		Deployments: []kube.Resource[appsv1.Deployment]{
-			kube.NewDeployment(ctx, s.Image, false),
-		},
-	}
-}
-
-func (s *ServiceDefinition) MaterializeWingman(ctx context.Context) *kube.MaterializedService {
-	if s.Wingman == nil {
-		return &kube.MaterializedService{}
-	}
-
-	return &kube.MaterializedService{
-		Deployments: []kube.Resource[appsv1.Deployment]{
-			kube.NewDeployment(ctx, s.Wingman.Image, true),
+			kube.NewDeployment(ctx, w.Image, nil, true),
 		},
 		Services: []kube.Resource[corev1.Service]{
 			kube.NewService(ctx, true),
+		},
+	}
+}
+
+type MaterializedEnv struct {
+	Name  string
+	Value value.Value
+}
+
+type ServiceDefinition struct {
+	Image string
+	Env   []MaterializedEnv
+}
+
+func (s *ServiceDefinition) Materialize(ctx context.Context) *kube.MaterializedService {
+	env := make([]kube.Env, len(s.Env))
+	for i, e := range s.Env {
+		env[i] = kube.Env{
+			Name:  e.Name,
+			Value: e.Value,
+		}
+	}
+
+	return &kube.MaterializedService{
+		Deployments: []kube.Resource[appsv1.Deployment]{
+			kube.NewDeployment(ctx, s.Image, env, false),
 		},
 	}
 }
