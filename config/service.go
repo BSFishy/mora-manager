@@ -12,7 +12,7 @@ import (
 	"github.com/BSFishy/mora-manager/point"
 	"github.com/BSFishy/mora-manager/state"
 	"github.com/BSFishy/mora-manager/value"
-	"github.com/BSFishy/mora-manager/wingman"
+	"k8s.io/client-go/kubernetes"
 )
 
 type ServiceWingman struct {
@@ -29,12 +29,27 @@ type ServiceConfig struct {
 }
 
 type configFromModulesCtx struct {
-	registry   *expr.FunctionRegistry
-	moduleName string
+	client      kubernetes.Interface
+	registry    expr.FunctionRegistry
+	user        *model.User
+	environment *model.Environment
+	moduleName  string
 }
 
-func (c *configFromModulesCtx) GetFunctionRegistry() *expr.FunctionRegistry {
+func (c *configFromModulesCtx) GetClientset() kubernetes.Interface {
+	return c.client
+}
+
+func (c *configFromModulesCtx) GetFunctionRegistry() expr.FunctionRegistry {
 	return c.registry
+}
+
+func (c *configFromModulesCtx) GetUser() *model.User {
+	return c.user
+}
+
+func (c *configFromModulesCtx) GetEnvironment() *model.Environment {
+	return c.environment
 }
 
 func (c *configFromModulesCtx) GetConfig() expr.Config {
@@ -49,15 +64,24 @@ func (c *configFromModulesCtx) GetModuleName() string {
 	return c.moduleName
 }
 
-func ServiceConfigFromModules(ctx context.Context, deps expr.HasFunctionRegistry, modules []api.Module) ([]ServiceConfig, error) {
+func ServiceConfigFromModules(ctx context.Context, deps interface {
+	core.HasClientSet
+	expr.HasFunctionRegistry
+	model.HasUser
+	model.HasEnvironment
+}, modules []api.Module,
+) ([]ServiceConfig, error) {
 	services := make(map[string]ServiceConfig)
 	graph := make(map[string][]string)
 	inDegree := make(map[string]int)
 
 	for _, module := range modules {
 		moduleDeps := &configFromModulesCtx{
-			registry:   deps.GetFunctionRegistry(),
-			moduleName: module.Name,
+			client:      deps.GetClientset(),
+			registry:    deps.GetFunctionRegistry(),
+			user:        deps.GetUser(),
+			environment: deps.GetEnvironment(),
+			moduleName:  module.Name,
 		}
 
 		for _, service := range module.Services {
@@ -116,53 +140,6 @@ func ServiceConfigFromModules(ctx context.Context, deps expr.HasFunctionRegistry
 	}
 
 	return result, nil
-}
-
-func (s *ServiceConfig) FindConfigPoints(ctx context.Context, deps interface {
-	expr.EvaluationContext
-	wingman.HasManager
-	model.HasUser
-	model.HasEnvironment
-	core.HasServiceName
-	core.HasClientSet
-},
-) (point.Points, error) {
-	configPoints := []point.Point{}
-
-	if s.Wingman != nil {
-		_, cfp, err := s.EvaluateWingman(ctx, deps)
-		if err != nil {
-			return nil, fmt.Errorf("evaluating wingman: %w", err)
-		}
-
-		configPoints = append(configPoints, cfp...)
-
-		manager := deps.GetWingmanManager()
-		wm, err := manager.FindWingman(ctx, deps)
-		if err != nil {
-			return nil, fmt.Errorf("getting wingman: %w", err)
-		}
-
-		if wm != nil {
-			cfp, err = wm.GetConfigPoints(ctx, deps)
-			if err != nil {
-				return nil, fmt.Errorf("getting wingman config points: %w", err)
-			}
-
-			configPoints = append(configPoints, cfp...)
-		}
-	}
-
-	if len(configPoints) == 0 {
-		_, cfp, err := s.Evaluate(ctx, deps)
-		if err != nil {
-			return nil, fmt.Errorf("evaluating service: %w", err)
-		}
-
-		configPoints = append(configPoints, cfp...)
-	}
-
-	return configPoints, nil
 }
 
 func (s *ServiceConfig) EvaluateWingman(ctx context.Context, deps expr.EvaluationContext) (*WingmanDefinition, []point.Point, error) {

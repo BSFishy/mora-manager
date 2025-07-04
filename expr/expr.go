@@ -38,7 +38,7 @@ func (e *Expression) Evaluate(ctx context.Context, deps EvaluationContext) (valu
 	}
 
 	list := e.List
-	if trivial := list.TrivialExpression(); trivial != nil {
+	if trivial := list.TrivialExpression(); trivial != nil && trivial.Identifier == nil {
 		v, err := trivial.Evaluate()
 		return v, []point.Point{}, err
 	}
@@ -49,18 +49,9 @@ func (e *Expression) Evaluate(ctx context.Context, deps EvaluationContext) (valu
 	}
 
 	registry := deps.GetFunctionRegistry()
-
-	fn, ok := registry.Get(functionName)
-	if !ok {
-		return nil, nil, fmt.Errorf("invalid function: %s", functionName)
-	}
-
 	args := list.Args()
-	if fn.IsInvalid(args) {
-		return nil, nil, fmt.Errorf("invalid arguments for: %s", functionName)
-	}
 
-	return fn.Evaluate(ctx, deps, args)
+	return registry.Evaluate(ctx, deps, functionName, args)
 }
 
 type ListExpression []Expression

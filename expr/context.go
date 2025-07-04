@@ -1,13 +1,21 @@
 package expr
 
 import (
+	"context"
+
 	"github.com/BSFishy/mora-manager/core"
+	"github.com/BSFishy/mora-manager/model"
 	"github.com/BSFishy/mora-manager/point"
 	"github.com/BSFishy/mora-manager/state"
+	"github.com/BSFishy/mora-manager/value"
 )
 
+type FunctionRegistry interface {
+	Evaluate(context.Context, EvaluationContext, string, Args) (value.Value, []point.Point, error)
+}
+
 type HasFunctionRegistry interface {
-	GetFunctionRegistry() *FunctionRegistry
+	GetFunctionRegistry() FunctionRegistry
 }
 
 type Config interface {
@@ -19,8 +27,11 @@ type HasConfig interface {
 }
 
 type EvaluationContext interface {
-	state.HasState
+	core.HasClientSet
 	HasFunctionRegistry
-	core.HasModuleName
+	model.HasEnvironment
+	model.HasUser
+	state.HasState
 	HasConfig
+	core.HasModuleName
 }

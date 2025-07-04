@@ -12,15 +12,16 @@ import (
 	"github.com/BSFishy/mora-manager/expr"
 	"github.com/BSFishy/mora-manager/point"
 	"github.com/BSFishy/mora-manager/util"
+	"github.com/BSFishy/mora-manager/value"
 )
 
-type client struct {
-	Client http.Client
-	Url    string
+type WingmanClient struct {
+	client http.Client
+	url    string
 }
 
-func (c *client) request(ctx context.Context, method, url string, body []byte) (*http.Response, error) {
-	fullUrl := fmt.Sprintf("%s%s", c.Url, url)
+func (c *WingmanClient) request(ctx context.Context, method, url string, body []byte) (*http.Response, error) {
+	fullUrl := fmt.Sprintf("%s%s", c.url, url)
 
 	requestGroup := slog.Group("request", "method", method, "url", url)
 	util.LogFromCtx(ctx).Debug("querying wingman", requestGroup)
@@ -34,7 +35,7 @@ func (c *client) request(ctx context.Context, method, url string, body []byte) (
 		}
 
 		var resp *http.Response
-		resp, err = c.Client.Do(req)
+		resp, err = c.client.Do(req)
 		if err == nil && resp.StatusCode == 200 {
 			return resp, nil
 		}
@@ -51,7 +52,7 @@ func (c *client) request(ctx context.Context, method, url string, body []byte) (
 	return nil, err
 }
 
-func (c *client) GetConfigPoints(ctx context.Context, deps WingmanContext) ([]point.Point, error) {
+func (c *WingmanClient) GetConfigPoints(ctx context.Context, deps WingmanContext) ([]point.Point, error) {
 	state := deps.GetState()
 	moduleName := deps.GetModuleName()
 
@@ -85,6 +86,45 @@ func (c *client) GetConfigPoints(ctx context.Context, deps WingmanContext) ([]po
 	return points, nil
 }
 
-func (c *client) GetFunctions(ctx context.Context, deps WingmanContext) (map[string]expr.ExpressionFunction, error) {
-	return nil, nil
+func (c *WingmanClient) GetFunction(ctx context.Context, deps WingmanContext, name string, args expr.Args) (value.Value, []point.Point, error) {
+	state := deps.GetState()
+	moduleName := deps.GetModuleName()
+
+	bodyData := GetFunctionRequest{
+		ModuleName: moduleName,
+		State:      *state,
+
+		FunctionName: name,
+		Args:         args,
+	}
+
+	body, err := json.Marshal(bodyData)
+	if err != nil {
+		return nil, nil, fmt.Errorf("encoding body: %w", err)
+	}
+
+	resp, err := c.request(ctx, http.MethodPost, "/api/v1/function", body)
+	if err != nil {
+		return nil, nil, fmt.Errorf("getting endpoint: %w", err)
+	}
+
+	var data GetFunctionResponse
+	if err = json.NewDecoder(resp.Body).Decode(&data); err != nil {
+		return nil, nil, fmt.Errorf("decoding body: %w", err)
+	}
+
+	if !data.Found {
+		return nil, nil, nil
+	}
+
+	if len(data.ConfigPoints) > 0 {
+		return nil, data.ConfigPoints, nil
+	}
+
+	value, err := value.Unmarshal(data.Value)
+	if err != nil {
+		return nil, nil, fmt.Errorf("decoding return value: %w", err)
+	}
+
+	return value, nil, nil
 }

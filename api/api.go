@@ -3,9 +3,12 @@ package api
 import (
 	"context"
 
+	"github.com/BSFishy/mora-manager/core"
 	"github.com/BSFishy/mora-manager/expr"
+	"github.com/BSFishy/mora-manager/model"
 	"github.com/BSFishy/mora-manager/point"
 	"github.com/BSFishy/mora-manager/state"
+	"k8s.io/client-go/kubernetes"
 )
 
 type Config struct {
@@ -13,12 +16,27 @@ type Config struct {
 }
 
 type flattenContext struct {
-	registry   *expr.FunctionRegistry
-	moduleName string
+	client      kubernetes.Interface
+	registry    expr.FunctionRegistry
+	user        *model.User
+	environment *model.Environment
+	moduleName  string
 }
 
-func (f *flattenContext) GetFunctionRegistry() *expr.FunctionRegistry {
+func (f *flattenContext) GetClientset() kubernetes.Interface {
+	return f.client
+}
+
+func (f *flattenContext) GetFunctionRegistry() expr.FunctionRegistry {
 	return f.registry
+}
+
+func (f *flattenContext) GetUser() *model.User {
+	return f.user
+}
+
+func (f *flattenContext) GetEnvironment() *model.Environment {
+	return f.environment
 }
 
 func (f *flattenContext) GetConfig() expr.Config {
@@ -33,12 +51,21 @@ func (f *flattenContext) GetModuleName() string {
 	return f.moduleName
 }
 
-func (c *Config) FlattenConfigs(ctx context.Context, deps expr.HasFunctionRegistry) ([]point.Point, error) {
+func (c *Config) FlattenConfigs(ctx context.Context, deps interface {
+	core.HasClientSet
+	expr.HasFunctionRegistry
+	model.HasUser
+	model.HasEnvironment
+},
+) ([]point.Point, error) {
 	configs := []point.Point{}
 	for _, module := range c.Modules {
 		moduleCtx := &flattenContext{
-			registry:   deps.GetFunctionRegistry(),
-			moduleName: module.Name,
+			client:      deps.GetClientset(),
+			registry:    deps.GetFunctionRegistry(),
+			user:        deps.GetUser(),
+			environment: deps.GetEnvironment(),
+			moduleName:  module.Name,
 		}
 
 		for _, config := range module.Configs {

@@ -50,16 +50,18 @@ func (a *App) createDeployment(w http.ResponseWriter, req *http.Request) error {
 		return fmt.Errorf("cancelling deployments: %w", err)
 	}
 
+	modelCtx := a.WithModel(user, environment)
+
 	// at this point, we shouldnt be actually referencing any configuration or
 	// state related things, so this should be fine even though the state and
 	// config structures are not in the context. might want to look into just
 	// returning empty values for these for safety?
-	services, err := config.ServiceConfigFromModules(ctx, a, cfg.Modules)
+	services, err := config.ServiceConfigFromModules(ctx, modelCtx, cfg.Modules)
 	if err != nil {
 		return fmt.Errorf("sorting services: %w", err)
 	}
 
-	configs, err := cfg.FlattenConfigs(ctx, a)
+	configs, err := cfg.FlattenConfigs(ctx, modelCtx)
 	if err != nil {
 		return fmt.Errorf("flattening configs: %w", err)
 	}
@@ -243,7 +245,7 @@ func (a *App) updateDeploymentConfigHtmxRoute(w http.ResponseWriter, r *http.Req
 				serviceName: service.ServiceName,
 			}
 
-			cfps, err := service.FindConfigPoints(ctx, runwayCtx)
+			cfps, err := FindConfigPoints(ctx, runwayCtx, &service)
 			if err != nil {
 				return fmt.Errorf("finding config points: %w", err)
 			}
@@ -388,7 +390,7 @@ func (a *App) getDeploymentProps(w http.ResponseWriter, r *http.Request) (*templ
 				serviceName: service.ServiceName,
 			}
 
-			configPoints, err = service.FindConfigPoints(ctx, runwayCtx)
+			configPoints, err = FindConfigPoints(ctx, runwayCtx, &service)
 			if err != nil {
 				return nil, fmt.Errorf("finding config points: %w", err)
 			}

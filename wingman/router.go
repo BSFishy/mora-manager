@@ -2,17 +2,18 @@ package wingman
 
 import (
 	"github.com/BSFishy/mora-manager/expr"
+	"github.com/BSFishy/mora-manager/function"
 	"github.com/BSFishy/mora-manager/router"
 )
 
 type app struct {
 	wingman  Wingman
-	registry *expr.FunctionRegistry
+	registry expr.FunctionRegistry
 }
 
 func Start(wingman Wingman) {
-	// TODO: fill this with default functions
-	registry := expr.NewFunctionRegistry()
+	manager := &Manager{}
+	registry := function.NewRegistry(manager)
 
 	a := app{
 		wingman:  wingman,

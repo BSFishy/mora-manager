@@ -3,7 +3,6 @@ package expr
 import (
 	"context"
 	"errors"
-	"sync"
 
 	"github.com/BSFishy/mora-manager/point"
 	"github.com/BSFishy/mora-manager/value"
@@ -26,32 +25,6 @@ func (e *ExpressionFunction) IsInvalid(args Args) bool {
 	}
 
 	return false
-}
-
-type FunctionRegistry struct {
-	mu      sync.RWMutex
-	funcMap map[string]ExpressionFunction
-}
-
-func NewFunctionRegistry() *FunctionRegistry {
-	return &FunctionRegistry{
-		funcMap: map[string]ExpressionFunction{},
-	}
-}
-
-func (r *FunctionRegistry) Register(name string, fn ExpressionFunction) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	r.funcMap[name] = fn
-}
-
-func (r *FunctionRegistry) Get(name string) (ExpressionFunction, bool) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
-	fn, ok := r.funcMap[name]
-	return fn, ok
 }
 
 type Args []Expression

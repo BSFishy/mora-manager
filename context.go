@@ -31,7 +31,7 @@ func (a *App) WithModel(user *model.User, env *model.Environment) *modelContext 
 type modelContext struct {
 	manager     *wingman.Manager
 	clientset   *kubernetes.Clientset
-	registry    *expr.FunctionRegistry
+	registry    expr.FunctionRegistry
 	user        *model.User
 	environment *model.Environment
 }
@@ -44,7 +44,7 @@ func (m *modelContext) GetClientset() kubernetes.Interface {
 	return m.clientset
 }
 
-func (m *modelContext) GetFunctionRegistry() *expr.FunctionRegistry {
+func (m *modelContext) GetFunctionRegistry() expr.FunctionRegistry {
 	return m.registry
 }
 
@@ -68,7 +68,7 @@ var (
 type runwayContext struct {
 	manager     *wingman.Manager
 	clientset   *kubernetes.Clientset
-	registry    *expr.FunctionRegistry
+	registry    expr.FunctionRegistry
 	user        *model.User
 	environment *model.Environment
 	config      *config.Config
@@ -85,7 +85,7 @@ func (r *runwayContext) GetClientset() kubernetes.Interface {
 	return r.clientset
 }
 
-func (r *runwayContext) GetFunctionRegistry() *expr.FunctionRegistry {
+func (r *runwayContext) GetFunctionRegistry() expr.FunctionRegistry {
 	return r.registry
 }
 

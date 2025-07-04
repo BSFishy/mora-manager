@@ -8,6 +8,7 @@ import (
 	"net/http"
 
 	"github.com/BSFishy/mora-manager/expr"
+	"github.com/BSFishy/mora-manager/function"
 	"github.com/BSFishy/mora-manager/model"
 	"github.com/BSFishy/mora-manager/router"
 	"github.com/BSFishy/mora-manager/templates"
@@ -23,7 +24,7 @@ type App struct {
 	clientset *kubernetes.Clientset
 	db        *model.DB
 	secret    string
-	registry  *expr.FunctionRegistry
+	registry  expr.FunctionRegistry
 	manager   *wingman.Manager
 }
 
@@ -31,7 +32,7 @@ func (a *App) GetClientset() kubernetes.Interface {
 	return a.clientset
 }
 
-func (a *App) GetFunctionRegistry() *expr.FunctionRegistry {
+func (a *App) GetFunctionRegistry() expr.FunctionRegistry {
 	return a.registry
 }
 
@@ -72,15 +73,15 @@ func NewApp() App {
 		slog.Info("setup secret", "secret", secret)
 	}
 
-	registry := expr.NewFunctionRegistry()
-	RegisterDefaultFunctions(registry)
+	manager := &wingman.Manager{}
+	registry := function.NewRegistry(manager)
 
 	return App{
 		clientset: clientset,
 		db:        db,
 		secret:    secret,
 		registry:  registry,
-		manager:   &wingman.Manager{},
+		manager:   manager,
 	}
 }
 
