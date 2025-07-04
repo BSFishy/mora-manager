@@ -5,14 +5,14 @@ import (
 	"errors"
 	"sync"
 
-	"github.com/BSFishy/mora-manager/config"
+	"github.com/BSFishy/mora-manager/point"
 	"github.com/BSFishy/mora-manager/value"
 )
 
 type ExpressionFunction struct {
 	MinArgs  int
 	MaxArgs  int // -1 for unlimited
-	Evaluate func(context.Context, Args) (value.Value, []config.Point, error)
+	Evaluate func(context.Context, EvaluationContext, Args) (value.Value, []point.Point, error)
 }
 
 func (e *ExpressionFunction) IsInvalid(args Args) bool {
@@ -60,16 +60,16 @@ func (a Args) Len() int {
 	return len(a)
 }
 
-func (a Args) Evaluate(ctx context.Context, i int) (value.Value, []config.Point, error) {
+func (a Args) Evaluate(ctx context.Context, deps EvaluationContext, i int) (value.Value, []point.Point, error) {
 	if i >= len(a) {
-		return value.NewNull(), []config.Point{}, nil
+		return value.NewNull(), []point.Point{}, nil
 	}
 
-	return a[i].Evaluate(ctx)
+	return a[i].Evaluate(ctx, deps)
 }
 
-func (a Args) Identifier(ctx context.Context, i int) (string, error) {
-	v, cfp, err := a.Evaluate(ctx, i)
+func (a Args) Identifier(ctx context.Context, deps EvaluationContext, i int) (string, error) {
+	v, cfp, err := a.Evaluate(ctx, deps, i)
 	if err != nil {
 		return "", err
 	}

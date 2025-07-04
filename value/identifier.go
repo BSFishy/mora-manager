@@ -28,6 +28,10 @@ func (i IdentifierValue) Integer() int {
 	return 0
 }
 
+func (i IdentifierValue) MarshalJSON() ([]byte, error) {
+	return marshal(i.Kind(), i.value)
+}
+
 func AsIdentifier(value Value) (string, error) {
 	if value.Kind() != Identifier {
 		return "", fmt.Errorf("expected identifier, found %s", value.Kind())

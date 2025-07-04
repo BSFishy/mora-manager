@@ -30,6 +30,10 @@ func (s StringValue) Integer() int {
 	return 0
 }
 
+func (s StringValue) MarshalJSON() ([]byte, error) {
+	return marshal(s.Kind(), s.value)
+}
+
 func AsString(value Value) (string, error) {
 	if value.Kind() != String {
 		return "", fmt.Errorf("expected string, found %s", value.Kind())

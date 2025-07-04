@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"slices"
 
+	"github.com/BSFishy/mora-manager/core"
 	"github.com/BSFishy/mora-manager/util"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
 )
 
 type Secret struct {
@@ -19,8 +19,11 @@ type Secret struct {
 
 const secretKey string = "value"
 
-func NewSecret(ctx context.Context, identifier string, value []byte) Resource[corev1.Secret] {
-	moduleName := util.Has(util.GetModuleName(ctx))
+func NewSecret(deps interface {
+	core.HasModuleName
+}, identifier string, value []byte,
+) Resource[corev1.Secret] {
+	moduleName := deps.GetModuleName()
 
 	return &Secret{
 		moduleName: moduleName,
@@ -33,8 +36,8 @@ func (s *Secret) Name() string {
 	return util.SanitizeDNS1123Subdomain(fmt.Sprintf("%s-%s", s.moduleName, s.identifier))
 }
 
-func (s *Secret) Get(ctx context.Context, client *kubernetes.Clientset) (*corev1.Secret, error) {
-	return client.CoreV1().Secrets(namespace(ctx)).Get(ctx, s.Name(), metav1.GetOptions{})
+func (s *Secret) Get(ctx context.Context, deps KubeContext) (*corev1.Secret, error) {
+	return deps.GetClientset().CoreV1().Secrets(namespace(deps)).Get(ctx, s.Name(), metav1.GetOptions{})
 }
 
 func (s *Secret) IsValid(ctx context.Context, secret *corev1.Secret) (bool, error) {
@@ -50,18 +53,18 @@ func (s *Secret) IsValid(ctx context.Context, secret *corev1.Secret) (bool, erro
 	return true, nil
 }
 
-func (s *Secret) Delete(ctx context.Context, client *kubernetes.Clientset) error {
-	return client.CoreV1().Secrets(namespace(ctx)).Delete(ctx, s.Name(), metav1.DeleteOptions{})
+func (s *Secret) Delete(ctx context.Context, deps KubeContext) error {
+	return deps.GetClientset().CoreV1().Secrets(namespace(deps)).Delete(ctx, s.Name(), metav1.DeleteOptions{})
 }
 
-func (s *Secret) Create(ctx context.Context, client *kubernetes.Clientset) (*corev1.Secret, error) {
-	labels := matchLabels(ctx, map[string]string{
+func (s *Secret) Create(ctx context.Context, deps KubeContext) (*corev1.Secret, error) {
+	labels := matchLabels(deps, map[string]string{
 		"mora.identifier": s.identifier,
 	})
 
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: namespace(ctx),
+			Namespace: namespace(deps),
 			Name:      s.Name(),
 			Labels:    labels,
 		},
@@ -72,7 +75,7 @@ func (s *Secret) Create(ctx context.Context, client *kubernetes.Clientset) (*cor
 		Type: corev1.SecretTypeOpaque,
 	}
 
-	return client.CoreV1().Secrets(namespace(ctx)).Create(ctx, secret, metav1.CreateOptions{})
+	return deps.GetClientset().CoreV1().Secrets(namespace(deps)).Create(ctx, secret, metav1.CreateOptions{})
 }
 
 func (s *Secret) Ready(secret *corev1.Secret) bool {

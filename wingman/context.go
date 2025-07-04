@@ -1,31 +1,30 @@
 package wingman
 
 import (
-	"context"
-
+	"github.com/BSFishy/mora-manager/expr"
 	"github.com/BSFishy/mora-manager/state"
 )
 
-type contextKey string
+var _ expr.EvaluationContext = (*wingmanContext)(nil)
 
-const moduleKey contextKey = "module"
-
-func withModule(ctx context.Context, module string) context.Context {
-	return context.WithValue(ctx, moduleKey, module)
+type wingmanContext struct {
+	moduleName string
+	state      *state.State
+	registry   *expr.FunctionRegistry
 }
 
-func ModuleName(ctx context.Context) string {
-	name, _ := ctx.Value(moduleKey).(string)
-	return name
+func (w *wingmanContext) GetModuleName() string {
+	return w.moduleName
 }
 
-const stateKey contextKey = "state"
-
-func withState(ctx context.Context, state state.State) context.Context {
-	return context.WithValue(ctx, stateKey, state)
+func (w *wingmanContext) GetState() *state.State {
+	return w.state
 }
 
-func GetState(ctx context.Context) state.State {
-	state, _ := ctx.Value(stateKey).(state.State)
-	return state
+func (w *wingmanContext) GetFunctionRegistry() *expr.FunctionRegistry {
+	return w.registry
+}
+
+func (w *wingmanContext) GetConfig() expr.Config {
+	panic("unimplemented")
 }

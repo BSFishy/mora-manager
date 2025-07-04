@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/BSFishy/mora-manager/config"
+	"github.com/BSFishy/mora-manager/point"
 	"github.com/BSFishy/mora-manager/state"
 )
 
@@ -15,7 +15,7 @@ type GetConfigPointsRequest struct {
 }
 
 type GetConfigPointsResponse struct {
-	ConfigPoints []config.Point
+	ConfigPoints []point.Point
 }
 
 func (a *app) handleConfigPoints(w http.ResponseWriter, r *http.Request) error {
@@ -26,10 +26,13 @@ func (a *app) handleConfigPoints(w http.ResponseWriter, r *http.Request) error {
 		return fmt.Errorf("decoding body: %w", err)
 	}
 
-	ctx = withModule(ctx, body.ModuleName)
-	ctx = withState(ctx, body.State)
+	wingmanCtx := wingmanContext{
+		moduleName: body.ModuleName,
+		state:      &body.State,
+		registry:   a.registry,
+	}
 
-	configPoints, err := a.wingman.GetConfigPoints(ctx)
+	configPoints, err := a.wingman.GetConfigPoints(ctx, &wingmanCtx)
 	if err != nil {
 		return fmt.Errorf("getting config points: %w", err)
 	}

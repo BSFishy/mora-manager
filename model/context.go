@@ -15,24 +15,26 @@ func GetSession(ctx context.Context) (*Session, bool) {
 	return session, ok
 }
 
+type HasSession interface {
+	GetSession() *Session
+}
+
 const userKey contextKey = "user"
 
 func WithUser(ctx context.Context, user *User) context.Context {
 	return context.WithValue(ctx, userKey, user)
 }
 
+// this one only makes sense as a request-scoped thing
 func GetUser(ctx context.Context) (*User, bool) {
 	user, ok := ctx.Value(userKey).(*User)
 	return user, ok
 }
 
-const environmentKey contextKey = "environment"
-
-func WithEnvironment(ctx context.Context, environment *Environment) context.Context {
-	return context.WithValue(ctx, environmentKey, environment)
+type HasUser interface {
+	GetUser() *User
 }
 
-func GetEnvironment(ctx context.Context) (*Environment, bool) {
-	environment, ok := ctx.Value(environmentKey).(*Environment)
-	return environment, ok
+type HasEnvironment interface {
+	GetEnvironment() *Environment
 }

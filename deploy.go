@@ -7,7 +7,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/BSFishy/mora-manager/expr"
+	"github.com/BSFishy/mora-manager/config"
 	"github.com/BSFishy/mora-manager/kube"
 	"github.com/BSFishy/mora-manager/model"
 	"github.com/BSFishy/mora-manager/state"
@@ -20,8 +20,6 @@ func (a *App) deploy(d *model.Deployment) {
 
 	logger = logger.With("deployment", d.Id, "environment", d.EnvironmentId)
 	ctx = util.WithLogger(ctx, logger)
-	ctx = expr.WithFunctionRegistry(ctx, a.registry)
-	ctx = WithClientset(ctx, a.clientset)
 
 	err := a.db.Transact(ctx, func(tx *sql.Tx) error {
 		err := d.Lock(ctx, tx)
@@ -33,8 +31,6 @@ func (a *App) deploy(d *model.Deployment) {
 		if err != nil {
 			return fmt.Errorf("getting environment: %w", err)
 		}
-
-		ctx = model.WithEnvironment(ctx, environment)
 
 		user, err := a.db.GetUserById(ctx, environment.UserId)
 		if err != nil {
@@ -55,12 +51,10 @@ func (a *App) deploy(d *model.Deployment) {
 			return fmt.Errorf("updating status: %w", err)
 		}
 
-		var cfg Config
+		var cfg config.Config
 		if err = json.Unmarshal(d.Config, &cfg); err != nil {
 			return fmt.Errorf("decoding config: %w", err)
 		}
-
-		ctx = WithConfig(ctx, &cfg)
 
 		var state state.State
 		if d.State != nil {
@@ -69,9 +63,7 @@ func (a *App) deploy(d *model.Deployment) {
 			}
 		}
 
-		ctx = WithState(ctx, &state)
-
-		if err = kube.EnsureNamespace(ctx, a.clientset); err != nil {
+		if err = kube.EnsureNamespace(ctx, a.WithModel(user, environment)); err != nil {
 			return fmt.Errorf("ensuring namespace: %w", err)
 		}
 
@@ -80,10 +72,19 @@ func (a *App) deploy(d *model.Deployment) {
 			logger := logger.With("module", service.ModuleName, "service", service.ServiceName)
 			ctx := util.WithLogger(ctx, logger)
 
-			ctx = util.WithModuleName(ctx, service.ModuleName)
-			ctx = util.WithServiceName(ctx, service.ServiceName)
+			runwayCtx := &runwayContext{
+				manager:     a.manager,
+				clientset:   a.clientset,
+				registry:    a.registry,
+				user:        user,
+				environment: environment,
+				config:      &cfg,
+				state:       &state,
+				moduleName:  service.ModuleName,
+				serviceName: service.ServiceName,
+			}
 
-			wm, configPoints, err := service.EvaluateWingman(ctx)
+			wm, configPoints, err := service.EvaluateWingman(ctx, runwayCtx)
 			if err != nil {
 				return fmt.Errorf("evaluating wingman: %w", err)
 			}
@@ -98,20 +99,20 @@ func (a *App) deploy(d *model.Deployment) {
 			}
 
 			if wm != nil {
-				mwm := wm.MaterializeWingman(ctx)
-				if err = mwm.Deploy(ctx, a.clientset); err != nil {
+				mwm := wm.MaterializeWingman(runwayCtx)
+				if err = mwm.Deploy(ctx, runwayCtx); err != nil {
 					return fmt.Errorf("deploying wingman: %w", err)
 				}
 
 				logger.Info("deployed wingman")
 
-				rwm, err := FindWingman(ctx)
+				rwm, err := a.manager.FindWingman(ctx, runwayCtx)
 				if err != nil {
 					return fmt.Errorf("finding wingman: %w", err)
 				}
 
 				if rwm != nil {
-					cfp, err := rwm.GetConfigPoints(ctx)
+					cfp, err := rwm.GetConfigPoints(ctx, runwayCtx)
 					if err != nil {
 						return fmt.Errorf("getting wingman config points: %w", err)
 					}
@@ -127,7 +128,7 @@ func (a *App) deploy(d *model.Deployment) {
 				}
 			}
 
-			def, configPoints, err := service.Evaluate(ctx)
+			def, configPoints, err := service.Evaluate(ctx, runwayCtx)
 			if err != nil {
 				return fmt.Errorf("evaluating service: %w", err)
 			}
@@ -141,8 +142,8 @@ func (a *App) deploy(d *model.Deployment) {
 				return nil
 			}
 
-			deployment := def.Materialize(ctx)
-			if err = deployment.Deploy(ctx, a.clientset); err != nil {
+			deployment := def.Materialize(runwayCtx)
+			if err = deployment.Deploy(ctx, runwayCtx); err != nil {
 				return fmt.Errorf("deploying service: %w", err)
 			}
 

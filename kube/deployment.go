@@ -4,31 +4,31 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/BSFishy/mora-manager/core"
+	"github.com/BSFishy/mora-manager/def"
 	"github.com/BSFishy/mora-manager/util"
 	"github.com/BSFishy/mora-manager/value"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
 )
-
-type Env struct {
-	Name  string
-	Value value.Value
-}
 
 // TODO: need to make a new module so that i can pass a ServiceDefinition around
 type Deployment struct {
 	moduleName  string
 	serviceName string
 	image       string
-	env         []Env
+	env         []def.Env
 	isWingman   bool
 }
 
-func NewDeployment(ctx context.Context, image string, env []Env, isWingman bool) Resource[appsv1.Deployment] {
-	moduleName := util.Has(util.GetModuleName(ctx))
-	serviceName := util.Has(util.GetServiceName(ctx))
+func NewDeployment(deps interface {
+	core.HasModuleName
+	core.HasServiceName
+}, image string, env []def.Env, isWingman bool,
+) Resource[appsv1.Deployment] {
+	moduleName := deps.GetModuleName()
+	serviceName := deps.GetServiceName()
 
 	return &Deployment{
 		moduleName:  moduleName,
@@ -48,8 +48,8 @@ func (d *Deployment) Name() string {
 	return util.SanitizeDNS1123Subdomain(name)
 }
 
-func (d *Deployment) Get(ctx context.Context, clientset *kubernetes.Clientset) (*appsv1.Deployment, error) {
-	return clientset.AppsV1().Deployments(namespace(ctx)).Get(ctx, d.Name(), metav1.GetOptions{})
+func (d *Deployment) Get(ctx context.Context, deps KubeContext) (*appsv1.Deployment, error) {
+	return deps.GetClientset().AppsV1().Deployments(namespace(deps)).Get(ctx, d.Name(), metav1.GetOptions{})
 }
 
 func (d *Deployment) IsValid(ctx context.Context, deployment *appsv1.Deployment) (bool, error) {
@@ -94,11 +94,11 @@ func (d *Deployment) IsValid(ctx context.Context, deployment *appsv1.Deployment)
 	return true, nil
 }
 
-func (d *Deployment) Delete(ctx context.Context, clientset *kubernetes.Clientset) error {
-	return clientset.AppsV1().Deployments(namespace(ctx)).Delete(ctx, d.Name(), metav1.DeleteOptions{})
+func (d *Deployment) Delete(ctx context.Context, deps KubeContext) error {
+	return deps.GetClientset().AppsV1().Deployments(namespace(deps)).Delete(ctx, d.Name(), metav1.DeleteOptions{})
 }
 
-func (d *Deployment) Create(ctx context.Context, clientset *kubernetes.Clientset) (*appsv1.Deployment, error) {
+func (d *Deployment) Create(ctx context.Context, deps KubeContext) (*appsv1.Deployment, error) {
 	extras := map[string]string{}
 	if d.isWingman {
 		extras["mora.wingman"] = "true"
@@ -128,10 +128,10 @@ func (d *Deployment) Create(ctx context.Context, clientset *kubernetes.Clientset
 		}
 	}
 
-	labels := matchLabels(ctx, extras)
+	labels := matchLabels(deps, extras)
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: namespace(ctx),
+			Namespace: namespace(deps),
 			Name:      d.Name(),
 		},
 		Spec: appsv1.DeploymentSpec{
@@ -140,7 +140,7 @@ func (d *Deployment) Create(ctx context.Context, clientset *kubernetes.Clientset
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Namespace: namespace(ctx),
+					Namespace: namespace(deps),
 					Name:      d.Name(),
 					Labels:    labels,
 				},
@@ -157,7 +157,7 @@ func (d *Deployment) Create(ctx context.Context, clientset *kubernetes.Clientset
 		},
 	}
 
-	return clientset.AppsV1().Deployments(namespace(ctx)).Create(ctx, deployment, metav1.CreateOptions{})
+	return deps.GetClientset().AppsV1().Deployments(namespace(deps)).Create(ctx, deployment, metav1.CreateOptions{})
 }
 
 func (d *Deployment) Ready(deployment *appsv1.Deployment) bool {

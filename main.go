@@ -11,6 +11,7 @@ import (
 	"github.com/BSFishy/mora-manager/model"
 	"github.com/BSFishy/mora-manager/router"
 	"github.com/BSFishy/mora-manager/templates"
+	"github.com/BSFishy/mora-manager/wingman"
 	"github.com/a-h/templ"
 	"k8s.io/client-go/kubernetes"
 )
@@ -23,6 +24,19 @@ type App struct {
 	db        *model.DB
 	secret    string
 	registry  *expr.FunctionRegistry
+	manager   *wingman.Manager
+}
+
+func (a *App) GetClientset() kubernetes.Interface {
+	return a.clientset
+}
+
+func (a *App) GetFunctionRegistry() *expr.FunctionRegistry {
+	return a.registry
+}
+
+func (a *App) GetWingmanManager() *wingman.Manager {
+	return a.manager
 }
 
 func NewApp() App {
@@ -66,6 +80,7 @@ func NewApp() App {
 		db:        db,
 		secret:    secret,
 		registry:  registry,
+		manager:   &wingman.Manager{},
 	}
 }
 

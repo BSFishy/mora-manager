@@ -1,16 +1,26 @@
 package expr
 
-import "context"
+import (
+	"github.com/BSFishy/mora-manager/core"
+	"github.com/BSFishy/mora-manager/point"
+	"github.com/BSFishy/mora-manager/state"
+)
 
-type contextKey string
-
-const functionRegistryKey contextKey = "function_registry"
-
-func WithFunctionRegistry(ctx context.Context, registry *FunctionRegistry) context.Context {
-	return context.WithValue(ctx, functionRegistryKey, registry)
+type HasFunctionRegistry interface {
+	GetFunctionRegistry() *FunctionRegistry
 }
 
-func GetFunctionRegistry(ctx context.Context) (*FunctionRegistry, bool) {
-	registry, ok := ctx.Value(functionRegistryKey).(*FunctionRegistry)
-	return registry, ok
+type Config interface {
+	FindConfig(string, string) *point.Point
+}
+
+type HasConfig interface {
+	GetConfig() Config
+}
+
+type EvaluationContext interface {
+	state.HasState
+	HasFunctionRegistry
+	core.HasModuleName
+	HasConfig
 }

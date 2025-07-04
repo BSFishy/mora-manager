@@ -21,3 +21,7 @@ func (n NullValue) Boolean() bool {
 func (n NullValue) Integer() int {
 	return 0
 }
+
+func (n NullValue) MarshalJSON() ([]byte, error) {
+	return marshal(n.Kind(), nil)
+}

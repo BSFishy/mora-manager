@@ -1,9 +1,7 @@
-package config
+package point
 
 import (
-	"context"
-
-	"github.com/BSFishy/mora-manager/util"
+	"github.com/BSFishy/mora-manager/core"
 )
 
 type PointKind string
@@ -25,9 +23,12 @@ type Point struct {
 }
 
 // Fill infers values from the context to the point if they are empty
-func (p *Point) Fill(ctx context.Context) {
+func (p *Point) Fill(deps interface {
+	core.HasModuleName
+},
+) {
 	if p.ModuleName == "" {
-		p.ModuleName = util.Has(util.GetModuleName(ctx))
+		p.ModuleName = deps.GetModuleName()
 	}
 
 	if p.Kind == "" {

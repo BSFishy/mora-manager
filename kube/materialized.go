@@ -5,7 +5,6 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/client-go/kubernetes"
 )
 
 type MaterializedService struct {
@@ -14,21 +13,21 @@ type MaterializedService struct {
 	Secrets     []Resource[corev1.Secret]
 }
 
-func (m *MaterializedService) Deploy(ctx context.Context, client *kubernetes.Clientset) error {
+func (m *MaterializedService) Deploy(ctx context.Context, deps KubeContext) error {
 	for _, secret := range m.Secrets {
-		if err := Deploy(ctx, client, secret); err != nil {
+		if err := Deploy(ctx, deps, secret); err != nil {
 			return err
 		}
 	}
 
 	for _, deployment := range m.Deployments {
-		if err := Deploy(ctx, client, deployment); err != nil {
+		if err := Deploy(ctx, deps, deployment); err != nil {
 			return err
 		}
 	}
 
 	for _, service := range m.Services {
-		if err := Deploy(ctx, client, service); err != nil {
+		if err := Deploy(ctx, deps, service); err != nil {
 			return err
 		}
 	}

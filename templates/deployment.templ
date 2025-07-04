@@ -2,17 +2,17 @@ package templates
 
 import (
 	"fmt"
-	"github.com/BSFishy/mora-manager/config"
 	"github.com/BSFishy/mora-manager/model"
+	"github.com/BSFishy/mora-manager/point"
 	"github.com/BSFishy/mora-manager/templates/styles"
 )
 
-var pktit = map[config.PointKind]string{
-	config.String: "text",
-	config.Secret: "password",
+var pktit = map[point.PointKind]string{
+	point.String: "text",
+	point.Secret: "password",
 }
 
-func pointKindToInputType(kind config.PointKind) string {
+func pointKindToInputType(kind point.PointKind) string {
 	inputType, ok := pktit[kind]
 	if !ok {
 		panic(fmt.Sprintf("invalid point kind: %s", kind))
@@ -24,7 +24,7 @@ func pointKindToInputType(kind config.PointKind) string {
 type DeploymentProps struct {
 	Id           string
 	Status       model.DeploymentStatus
-	ConfigPoints []config.Point
+	ConfigPoints []point.Point
 	Values       []string
 }
 
@@ -132,8 +132,8 @@ templ deploymentBody(props DeploymentProps) {
 	</div>
 }
 
-func pointValue(point config.Point, value string) string {
-	if point.Kind == config.Secret {
+func pointValue(p point.Point, value string) string {
+	if p.Kind == point.Secret {
 		if value != "" {
 			return "aaaaa"
 		}

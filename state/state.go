@@ -1,6 +1,6 @@
 package state
 
-import "github.com/BSFishy/mora-manager/config"
+import "github.com/BSFishy/mora-manager/point"
 
 type State struct {
 	Configs      []StateConfig
@@ -16,7 +16,7 @@ type ServiceRef struct {
 type StateConfig struct {
 	ModuleName string
 	Name       string
-	Kind       config.PointKind
+	Kind       point.PointKind
 	Value      []byte
 }
 

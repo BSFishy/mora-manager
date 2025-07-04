@@ -6,25 +6,25 @@ import (
 	"maps"
 	"time"
 
+	"github.com/BSFishy/mora-manager/core"
 	"github.com/BSFishy/mora-manager/model"
 	"github.com/BSFishy/mora-manager/util"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
 )
 
 type Resource[T any] interface {
 	Name() string
-	Get(context.Context, *kubernetes.Clientset) (*T, error)
+	Get(context.Context, KubeContext) (*T, error)
 	IsValid(context.Context, *T) (bool, error)
-	Delete(context.Context, *kubernetes.Clientset) error
-	Create(context.Context, *kubernetes.Clientset) (*T, error)
+	Delete(context.Context, KubeContext) error
+	Create(context.Context, KubeContext) (*T, error)
 	Ready(*T) bool
 }
 
-func Deploy[T any](ctx context.Context, client *kubernetes.Clientset, res Resource[T]) error {
-	found, err := res.Get(ctx, client)
+func Deploy[T any](ctx context.Context, deps KubeContext, res Resource[T]) error {
+	found, err := res.Get(ctx, deps)
 	if err == nil {
 		valid, err := res.IsValid(ctx, found)
 		if err != nil {
@@ -35,12 +35,12 @@ func Deploy[T any](ctx context.Context, client *kubernetes.Clientset, res Resour
 			return nil
 		}
 
-		if err = res.Delete(ctx, client); err != nil {
+		if err = res.Delete(ctx, deps); err != nil {
 			return fmt.Errorf("deleting resource: %w", err)
 		}
 
 		for {
-			_, err = res.Get(ctx, client)
+			_, err = res.Get(ctx, deps)
 			if errors.IsNotFound(err) {
 				break
 			}
@@ -50,7 +50,7 @@ func Deploy[T any](ctx context.Context, client *kubernetes.Clientset, res Resour
 		return fmt.Errorf("getting resource: %w", err)
 	}
 
-	created, err := res.Create(ctx, client)
+	created, err := res.Create(ctx, deps)
 	if err != nil {
 		return fmt.Errorf("creating resource: %w", err)
 	}
@@ -59,7 +59,7 @@ func Deploy[T any](ctx context.Context, client *kubernetes.Clientset, res Resour
 		util.LogFromCtx(ctx).Debug("waiting for resource to be ready")
 		time.Sleep(500 * time.Millisecond)
 
-		created, err = res.Get(ctx, client)
+		created, err = res.Get(ctx, deps)
 		if err != nil {
 			return fmt.Errorf("re-fetching for readiness: %w", err)
 		}
@@ -68,15 +68,26 @@ func Deploy[T any](ctx context.Context, client *kubernetes.Clientset, res Resour
 	return nil
 }
 
-func namespace(ctx context.Context) string {
-	user := util.Has(model.GetUser(ctx))
-	env := util.Has(model.GetEnvironment(ctx))
+func namespace(deps interface {
+	model.HasUser
+	model.HasEnvironment
+},
+) string {
+	user := deps.GetUser()
+	env := deps.GetEnvironment()
 
 	return fmt.Sprintf("%s-%s", user.Username, env.Slug)
 }
 
-func EnsureNamespace(ctx context.Context, clientset *kubernetes.Clientset) error {
-	ns := namespace(ctx)
+func EnsureNamespace(ctx context.Context, deps interface {
+	model.HasUser
+	model.HasEnvironment
+	core.HasClientSet
+},
+) error {
+	clientset := deps.GetClientset()
+	ns := namespace(deps)
+
 	_, err := clientset.CoreV1().Namespaces().Get(ctx, ns, metav1.GetOptions{})
 	if err == nil {
 		return nil
@@ -100,10 +111,15 @@ func EnsureNamespace(ctx context.Context, clientset *kubernetes.Clientset) error
 	return fmt.Errorf("getting namespace: %w", err)
 }
 
-func matchLabels(ctx context.Context, extras map[string]string) map[string]string {
-	user := util.Has(model.GetUser(ctx))
-	env := util.Has(model.GetEnvironment(ctx))
-	moduleName := util.Has(util.GetModuleName(ctx))
+func matchLabels(deps interface {
+	model.HasUser
+	model.HasEnvironment
+	core.HasModuleName
+}, extras map[string]string,
+) map[string]string {
+	user := deps.GetUser()
+	env := deps.GetEnvironment()
+	moduleName := deps.GetModuleName()
 
 	labels := map[string]string{
 		"mora.enabled":     "true",
@@ -112,9 +128,8 @@ func matchLabels(ctx context.Context, extras map[string]string) map[string]strin
 		"mora.module":      moduleName,
 	}
 
-	serviceName, ok := util.GetServiceName(ctx)
-	if ok {
-		labels["mora.service"] = serviceName
+	if hasServiceName, ok := deps.(core.HasServiceName); ok {
+		labels["mora.service"] = hasServiceName.GetServiceName()
 	}
 
 	maps.Copy(labels, extras)

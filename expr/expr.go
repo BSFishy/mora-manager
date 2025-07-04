@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/BSFishy/mora-manager/config"
+	"github.com/BSFishy/mora-manager/point"
 	"github.com/BSFishy/mora-manager/util"
 	"github.com/BSFishy/mora-manager/value"
 )
@@ -16,8 +16,8 @@ type Expression struct {
 	List *ListExpression `json:"list,omitempty"`
 }
 
-func (e *Expression) ForceEvaluate(ctx context.Context) (value.Value, error) {
-	value, cfp, err := e.Evaluate(ctx)
+func (e *Expression) ForceEvaluate(ctx context.Context, deps EvaluationContext) (value.Value, error) {
+	value, cfp, err := e.Evaluate(ctx, deps)
 	if err != nil {
 		return nil, err
 	}
@@ -29,26 +29,26 @@ func (e *Expression) ForceEvaluate(ctx context.Context) (value.Value, error) {
 	return value, nil
 }
 
-func (e *Expression) Evaluate(ctx context.Context) (value.Value, []config.Point, error) {
+func (e *Expression) Evaluate(ctx context.Context, deps EvaluationContext) (value.Value, []point.Point, error) {
 	util.AssertEnum("invalid expression", e.Atom, e.List)
 
 	if e.Atom != nil {
 		v, err := e.Atom.Evaluate()
-		return v, []config.Point{}, err
+		return v, []point.Point{}, err
 	}
 
 	list := e.List
 	if trivial := list.TrivialExpression(); trivial != nil {
 		v, err := trivial.Evaluate()
-		return v, []config.Point{}, err
+		return v, []point.Point{}, err
 	}
 
-	functionName, err := list.GetFunctionName(ctx)
+	functionName, err := list.GetFunctionName(ctx, deps)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	registry := util.Has(GetFunctionRegistry(ctx))
+	registry := deps.GetFunctionRegistry()
 
 	fn, ok := registry.Get(functionName)
 	if !ok {
@@ -60,7 +60,7 @@ func (e *Expression) Evaluate(ctx context.Context) (value.Value, []config.Point,
 		return nil, nil, fmt.Errorf("invalid arguments for: %s", functionName)
 	}
 
-	return fn.Evaluate(ctx, args)
+	return fn.Evaluate(ctx, deps, args)
 }
 
 type ListExpression []Expression
@@ -74,13 +74,13 @@ func (l ListExpression) TrivialExpression() *Atom {
 	return e.Atom
 }
 
-func (l ListExpression) GetFunctionName(ctx context.Context) (string, error) {
+func (l ListExpression) GetFunctionName(ctx context.Context, deps EvaluationContext) (string, error) {
 	if len(l) < 1 {
 		return "", errors.New("invalid empty list expression")
 	}
 
 	e := l[0]
-	v, cfp, err := e.Evaluate(ctx)
+	v, cfp, err := e.Evaluate(ctx, deps)
 	if err != nil {
 		return "", fmt.Errorf("evaluating expression: %w", err)
 	}

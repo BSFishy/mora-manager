@@ -1,43 +1,114 @@
 package main
 
 import (
-	"context"
-
+	"github.com/BSFishy/mora-manager/config"
+	"github.com/BSFishy/mora-manager/core"
+	"github.com/BSFishy/mora-manager/expr"
+	"github.com/BSFishy/mora-manager/model"
 	"github.com/BSFishy/mora-manager/state"
+	"github.com/BSFishy/mora-manager/wingman"
 	"k8s.io/client-go/kubernetes"
 )
 
-type contextKey string
+var (
+	_ wingman.HasManager       = (*modelContext)(nil)
+	_ core.HasClientSet        = (*modelContext)(nil)
+	_ expr.HasFunctionRegistry = (*modelContext)(nil)
+	_ model.HasUser            = (*modelContext)(nil)
+	_ model.HasEnvironment     = (*modelContext)(nil)
+)
 
-const configKey contextKey = "config"
-
-func WithConfig(ctx context.Context, config *Config) context.Context {
-	return context.WithValue(ctx, configKey, config)
+func (a *App) WithModel(user *model.User, env *model.Environment) *modelContext {
+	return &modelContext{
+		manager:     a.manager,
+		clientset:   a.clientset,
+		registry:    a.registry,
+		user:        user,
+		environment: env,
+	}
 }
 
-func GetConfig(ctx context.Context) (*Config, bool) {
-	config, ok := ctx.Value(configKey).(*Config)
-	return config, ok
+type modelContext struct {
+	manager     *wingman.Manager
+	clientset   *kubernetes.Clientset
+	registry    *expr.FunctionRegistry
+	user        *model.User
+	environment *model.Environment
 }
 
-const stateKey contextKey = "state"
-
-func WithState(ctx context.Context, state *state.State) context.Context {
-	return context.WithValue(ctx, stateKey, state)
+func (m *modelContext) GetWingmanManager() *wingman.Manager {
+	return m.manager
 }
 
-func GetState(ctx context.Context) (*state.State, bool) {
-	state, ok := ctx.Value(stateKey).(*state.State)
-	return state, ok
+func (m *modelContext) GetClientset() kubernetes.Interface {
+	return m.clientset
 }
 
-const clientsetKey contextKey = "clientset"
-
-func WithClientset(ctx context.Context, client *kubernetes.Clientset) context.Context {
-	return context.WithValue(ctx, clientsetKey, client)
+func (m *modelContext) GetFunctionRegistry() *expr.FunctionRegistry {
+	return m.registry
 }
 
-func GetClientset(ctx context.Context) (*kubernetes.Clientset, bool) {
-	client, ok := ctx.Value(clientsetKey).(*kubernetes.Clientset)
-	return client, ok
+func (m *modelContext) GetUser() *model.User {
+	return m.user
+}
+
+func (m *modelContext) GetEnvironment() *model.Environment {
+	return m.environment
+}
+
+var (
+	_ expr.EvaluationContext = (*runwayContext)(nil)
+	_ wingman.HasManager     = (*runwayContext)(nil)
+	_ model.HasUser          = (*runwayContext)(nil)
+	_ model.HasEnvironment   = (*runwayContext)(nil)
+	_ core.HasServiceName    = (*runwayContext)(nil)
+	_ core.HasClientSet      = (*runwayContext)(nil)
+)
+
+type runwayContext struct {
+	manager     *wingman.Manager
+	clientset   *kubernetes.Clientset
+	registry    *expr.FunctionRegistry
+	user        *model.User
+	environment *model.Environment
+	config      *config.Config
+	state       *state.State
+	moduleName  string
+	serviceName string
+}
+
+func (r *runwayContext) GetWingmanManager() *wingman.Manager {
+	return r.manager
+}
+
+func (r *runwayContext) GetClientset() kubernetes.Interface {
+	return r.clientset
+}
+
+func (r *runwayContext) GetFunctionRegistry() *expr.FunctionRegistry {
+	return r.registry
+}
+
+func (r *runwayContext) GetUser() *model.User {
+	return r.user
+}
+
+func (r *runwayContext) GetEnvironment() *model.Environment {
+	return r.environment
+}
+
+func (r *runwayContext) GetConfig() expr.Config {
+	return r.config
+}
+
+func (r *runwayContext) GetState() *state.State {
+	return r.state
+}
+
+func (r *runwayContext) GetModuleName() string {
+	return r.moduleName
+}
+
+func (r *runwayContext) GetServiceName() string {
+	return r.serviceName
 }

@@ -4,11 +4,11 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/BSFishy/mora-manager/core"
 	"github.com/BSFishy/mora-manager/util"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/client-go/kubernetes"
 )
 
 type Service struct {
@@ -17,9 +17,13 @@ type Service struct {
 	isWingman   bool
 }
 
-func NewService(ctx context.Context, isWingman bool) Resource[corev1.Service] {
-	moduleName := util.Has(util.GetModuleName(ctx))
-	serviceName := util.Has(util.GetServiceName(ctx))
+func NewService(deps interface {
+	core.HasModuleName
+	core.HasServiceName
+}, isWingman bool,
+) Resource[corev1.Service] {
+	moduleName := deps.GetModuleName()
+	serviceName := deps.GetServiceName()
 
 	return &Service{
 		moduleName:  moduleName,
@@ -37,8 +41,8 @@ func (s *Service) Name() string {
 	return util.SanitizeDNS1123Subdomain(name)
 }
 
-func (s *Service) Get(ctx context.Context, clientset *kubernetes.Clientset) (*corev1.Service, error) {
-	return clientset.CoreV1().Services(namespace(ctx)).Get(ctx, s.Name(), metav1.GetOptions{})
+func (s *Service) Get(ctx context.Context, deps KubeContext) (*corev1.Service, error) {
+	return deps.GetClientset().CoreV1().Services(namespace(deps)).Get(ctx, s.Name(), metav1.GetOptions{})
 }
 
 // TODO: support non-wingman
@@ -60,22 +64,22 @@ func (s *Service) IsValid(ctx context.Context, service *corev1.Service) (bool, e
 	return true, nil
 }
 
-func (s *Service) Delete(ctx context.Context, clientset *kubernetes.Clientset) error {
-	return clientset.CoreV1().Services(namespace(ctx)).Delete(ctx, s.Name(), metav1.DeleteOptions{})
+func (s *Service) Delete(ctx context.Context, deps KubeContext) error {
+	return deps.GetClientset().CoreV1().Services(namespace(deps)).Delete(ctx, s.Name(), metav1.DeleteOptions{})
 }
 
 // TODO: support non-wingman
-func (s *Service) Create(ctx context.Context, clientset *kubernetes.Clientset) (*corev1.Service, error) {
+func (s *Service) Create(ctx context.Context, deps KubeContext) (*corev1.Service, error) {
 	if !s.isWingman {
 		return nil, nil
 	}
 
-	labels := matchLabels(ctx, map[string]string{
+	labels := matchLabels(deps, map[string]string{
 		"mora.wingman": "true",
 	})
 	service := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: namespace(ctx),
+			Namespace: namespace(deps),
 			Name:      s.Name(),
 			Labels:    labels,
 		},
@@ -90,7 +94,7 @@ func (s *Service) Create(ctx context.Context, clientset *kubernetes.Clientset) (
 		},
 	}
 
-	return clientset.CoreV1().Services(namespace(ctx)).Create(ctx, service, metav1.CreateOptions{})
+	return deps.GetClientset().CoreV1().Services(namespace(deps)).Create(ctx, service, metav1.CreateOptions{})
 }
 
 func (s *Service) Ready(service *corev1.Service) bool {
