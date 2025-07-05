@@ -46,6 +46,10 @@ func (c *WingmanClient) request(ctx context.Context, method, url string, body []
 			statusCode = resp.StatusCode
 		}
 
+		if err == nil {
+			err = fmt.Errorf("invalid status code: %d", statusCode)
+		}
+
 		util.LogFromCtx(ctx).Debug("retrying wingman request", requestGroup, slog.Group("response", "status", statusCode))
 		time.Sleep(time.Second)
 	}

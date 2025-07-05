@@ -20,22 +20,25 @@ type Deployment struct {
 	image       string
 	env         []def.Env
 	isWingman   bool
+
+	serviceAccount string
 }
 
 func NewDeployment(deps interface {
 	core.HasModuleName
 	core.HasServiceName
-}, image string, env []def.Env, isWingman bool,
+}, image string, env []def.Env, isWingman bool, serviceAccount string,
 ) Resource[appsv1.Deployment] {
 	moduleName := deps.GetModuleName()
 	serviceName := deps.GetServiceName()
 
 	return &Deployment{
-		moduleName:  moduleName,
-		serviceName: serviceName,
-		image:       image,
-		env:         env,
-		isWingman:   isWingman,
+		moduleName:     moduleName,
+		serviceName:    serviceName,
+		image:          image,
+		env:            env,
+		isWingman:      isWingman,
+		serviceAccount: serviceAccount,
 	}
 }
 
@@ -53,6 +56,10 @@ func (d *Deployment) Get(ctx context.Context, deps KubeContext) (*appsv1.Deploym
 }
 
 func (d *Deployment) IsValid(ctx context.Context, deployment *appsv1.Deployment) (bool, error) {
+	if deployment.Spec.Template.Spec.ServiceAccountName != d.serviceAccount {
+		return false, nil
+	}
+
 	containers := deployment.Spec.Template.Spec.Containers
 	if len(containers) != 1 {
 		return false, nil
@@ -145,6 +152,7 @@ func (d *Deployment) Create(ctx context.Context, deps KubeContext) (*appsv1.Depl
 					Labels:    labels,
 				},
 				Spec: corev1.PodSpec{
+					ServiceAccountName: d.serviceAccount,
 					Containers: []corev1.Container{
 						{
 							Name:  util.SanitizeDNS1123Label(d.Name()),

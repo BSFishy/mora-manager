@@ -83,9 +83,10 @@ func (s *Secret) Ready(secret *corev1.Secret) bool {
 	return true
 }
 
+// GetSecret reads a secret using the identifier. this should be the full name
+// of the resource, including the module name
 func GetSecret(ctx context.Context, deps KubeContext, identifier string) ([]byte, error) {
-	secret := NewSecret(deps, identifier, nil)
-	res, err := secret.Get(ctx, deps)
+	res, err := deps.GetClientset().CoreV1().Secrets(namespace(deps)).Get(ctx, identifier, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
