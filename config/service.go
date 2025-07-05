@@ -8,7 +8,6 @@ import (
 	"github.com/BSFishy/mora-manager/api"
 	"github.com/BSFishy/mora-manager/core"
 	"github.com/BSFishy/mora-manager/expr"
-	"github.com/BSFishy/mora-manager/model"
 	"github.com/BSFishy/mora-manager/point"
 	"github.com/BSFishy/mora-manager/state"
 	"github.com/BSFishy/mora-manager/value"
@@ -31,8 +30,8 @@ type ServiceConfig struct {
 type configFromModulesCtx struct {
 	client      kubernetes.Interface
 	registry    expr.FunctionRegistry
-	user        *model.User
-	environment *model.Environment
+	user        string
+	environment string
 	moduleName  string
 }
 
@@ -44,11 +43,11 @@ func (c *configFromModulesCtx) GetFunctionRegistry() expr.FunctionRegistry {
 	return c.registry
 }
 
-func (c *configFromModulesCtx) GetUser() *model.User {
+func (c *configFromModulesCtx) GetUser() string {
 	return c.user
 }
 
-func (c *configFromModulesCtx) GetEnvironment() *model.Environment {
+func (c *configFromModulesCtx) GetEnvironment() string {
 	return c.environment
 }
 
@@ -67,8 +66,8 @@ func (c *configFromModulesCtx) GetModuleName() string {
 func ServiceConfigFromModules(ctx context.Context, deps interface {
 	core.HasClientSet
 	expr.HasFunctionRegistry
-	model.HasUser
-	model.HasEnvironment
+	core.HasUser
+	core.HasEnvironment
 }, modules []api.Module,
 ) ([]ServiceConfig, error) {
 	services := make(map[string]ServiceConfig)

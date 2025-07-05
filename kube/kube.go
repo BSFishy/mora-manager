@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/BSFishy/mora-manager/core"
-	"github.com/BSFishy/mora-manager/model"
 	"github.com/BSFishy/mora-manager/util"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -69,19 +68,19 @@ func Deploy[T any](ctx context.Context, deps KubeContext, res Resource[T]) error
 }
 
 func namespace(deps interface {
-	model.HasUser
-	model.HasEnvironment
+	core.HasUser
+	core.HasEnvironment
 },
 ) string {
 	user := deps.GetUser()
 	env := deps.GetEnvironment()
 
-	return fmt.Sprintf("%s-%s", user.Username, env.Slug)
+	return fmt.Sprintf("%s-%s", user, env)
 }
 
 func EnsureNamespace(ctx context.Context, deps interface {
-	model.HasUser
-	model.HasEnvironment
+	core.HasUser
+	core.HasEnvironment
 	core.HasClientSet
 },
 ) error {
@@ -112,8 +111,8 @@ func EnsureNamespace(ctx context.Context, deps interface {
 }
 
 func matchLabels(deps interface {
-	model.HasUser
-	model.HasEnvironment
+	core.HasUser
+	core.HasEnvironment
 	core.HasModuleName
 }, extras map[string]string,
 ) map[string]string {
@@ -123,8 +122,8 @@ func matchLabels(deps interface {
 
 	labels := map[string]string{
 		"mora.enabled":     "true",
-		"mora.user":        user.Username,
-		"mora.environment": env.Slug,
+		"mora.user":        user,
+		"mora.environment": env,
 		"mora.module":      moduleName,
 	}
 

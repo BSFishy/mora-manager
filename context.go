@@ -14,8 +14,8 @@ var (
 	_ wingman.HasManager       = (*modelContext)(nil)
 	_ core.HasClientSet        = (*modelContext)(nil)
 	_ expr.HasFunctionRegistry = (*modelContext)(nil)
-	_ model.HasUser            = (*modelContext)(nil)
-	_ model.HasEnvironment     = (*modelContext)(nil)
+	_ core.HasUser             = (*modelContext)(nil)
+	_ core.HasEnvironment      = (*modelContext)(nil)
 )
 
 func (a *App) WithModel(user *model.User, env *model.Environment) *modelContext {
@@ -23,8 +23,8 @@ func (a *App) WithModel(user *model.User, env *model.Environment) *modelContext 
 		manager:     a.manager,
 		clientset:   a.clientset,
 		registry:    a.registry,
-		user:        user,
-		environment: env,
+		user:        user.Username,
+		environment: env.Slug,
 	}
 }
 
@@ -32,8 +32,8 @@ type modelContext struct {
 	manager     *wingman.Manager
 	clientset   *kubernetes.Clientset
 	registry    expr.FunctionRegistry
-	user        *model.User
-	environment *model.Environment
+	user        string
+	environment string
 }
 
 func (m *modelContext) GetWingmanManager() *wingman.Manager {
@@ -48,19 +48,17 @@ func (m *modelContext) GetFunctionRegistry() expr.FunctionRegistry {
 	return m.registry
 }
 
-func (m *modelContext) GetUser() *model.User {
+func (m *modelContext) GetUser() string {
 	return m.user
 }
 
-func (m *modelContext) GetEnvironment() *model.Environment {
+func (m *modelContext) GetEnvironment() string {
 	return m.environment
 }
 
 var (
 	_ expr.EvaluationContext = (*runwayContext)(nil)
 	_ wingman.HasManager     = (*runwayContext)(nil)
-	_ model.HasUser          = (*runwayContext)(nil)
-	_ model.HasEnvironment   = (*runwayContext)(nil)
 	_ core.HasServiceName    = (*runwayContext)(nil)
 	_ core.HasClientSet      = (*runwayContext)(nil)
 )
@@ -69,8 +67,8 @@ type runwayContext struct {
 	manager     *wingman.Manager
 	clientset   *kubernetes.Clientset
 	registry    expr.FunctionRegistry
-	user        *model.User
-	environment *model.Environment
+	user        string
+	environment string
 	config      *config.Config
 	state       *state.State
 	moduleName  string
@@ -89,11 +87,11 @@ func (r *runwayContext) GetFunctionRegistry() expr.FunctionRegistry {
 	return r.registry
 }
 
-func (r *runwayContext) GetUser() *model.User {
+func (r *runwayContext) GetUser() string {
 	return r.user
 }
 
-func (r *runwayContext) GetEnvironment() *model.Environment {
+func (r *runwayContext) GetEnvironment() string {
 	return r.environment
 }
 

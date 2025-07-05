@@ -5,7 +5,6 @@ import (
 
 	"github.com/BSFishy/mora-manager/core"
 	"github.com/BSFishy/mora-manager/expr"
-	"github.com/BSFishy/mora-manager/model"
 	"github.com/BSFishy/mora-manager/point"
 	"github.com/BSFishy/mora-manager/state"
 	"k8s.io/client-go/kubernetes"
@@ -18,8 +17,8 @@ type Config struct {
 type flattenContext struct {
 	client      kubernetes.Interface
 	registry    expr.FunctionRegistry
-	user        *model.User
-	environment *model.Environment
+	user        string
+	environment string
 	moduleName  string
 }
 
@@ -31,11 +30,11 @@ func (f *flattenContext) GetFunctionRegistry() expr.FunctionRegistry {
 	return f.registry
 }
 
-func (f *flattenContext) GetUser() *model.User {
+func (f *flattenContext) GetUser() string {
 	return f.user
 }
 
-func (f *flattenContext) GetEnvironment() *model.Environment {
+func (f *flattenContext) GetEnvironment() string {
 	return f.environment
 }
 
@@ -54,8 +53,8 @@ func (f *flattenContext) GetModuleName() string {
 func (c *Config) FlattenConfigs(ctx context.Context, deps interface {
 	core.HasClientSet
 	expr.HasFunctionRegistry
-	model.HasUser
-	model.HasEnvironment
+	core.HasUser
+	core.HasEnvironment
 },
 ) ([]point.Point, error) {
 	configs := []point.Point{}

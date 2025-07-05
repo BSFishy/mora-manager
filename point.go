@@ -7,7 +7,6 @@ import (
 	"github.com/BSFishy/mora-manager/config"
 	"github.com/BSFishy/mora-manager/core"
 	"github.com/BSFishy/mora-manager/expr"
-	"github.com/BSFishy/mora-manager/model"
 	"github.com/BSFishy/mora-manager/point"
 	"github.com/BSFishy/mora-manager/wingman"
 )
@@ -15,8 +14,8 @@ import (
 func FindConfigPoints(ctx context.Context, deps interface {
 	expr.EvaluationContext
 	wingman.HasManager
-	model.HasUser
-	model.HasEnvironment
+	core.HasUser
+	core.HasEnvironment
 	core.HasServiceName
 	core.HasClientSet
 },

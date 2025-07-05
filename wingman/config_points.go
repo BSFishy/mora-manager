@@ -27,6 +27,7 @@ func (a *app) handleConfigPoints(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	wingmanCtx := wingmanContext{
+		client:     a.client,
 		moduleName: body.ModuleName,
 		state:      &body.State,
 		registry:   a.registry,

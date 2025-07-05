@@ -9,6 +9,7 @@ import (
 
 	"github.com/BSFishy/mora-manager/expr"
 	"github.com/BSFishy/mora-manager/function"
+	"github.com/BSFishy/mora-manager/kube"
 	"github.com/BSFishy/mora-manager/model"
 	"github.com/BSFishy/mora-manager/router"
 	"github.com/BSFishy/mora-manager/templates"
@@ -43,7 +44,7 @@ func (a *App) GetWingmanManager() *wingman.Manager {
 func NewApp() App {
 	ctx := context.Background()
 
-	clientset, err := NewClientset()
+	clientset, err := kube.NewClientset()
 	if err != nil {
 		panic(err)
 	}

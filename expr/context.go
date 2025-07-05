@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/BSFishy/mora-manager/core"
-	"github.com/BSFishy/mora-manager/model"
 	"github.com/BSFishy/mora-manager/point"
 	"github.com/BSFishy/mora-manager/state"
 	"github.com/BSFishy/mora-manager/value"
@@ -29,8 +28,8 @@ type HasConfig interface {
 type EvaluationContext interface {
 	core.HasClientSet
 	HasFunctionRegistry
-	model.HasEnvironment
-	model.HasUser
+	core.HasEnvironment
+	core.HasUser
 	state.HasState
 	HasConfig
 	core.HasModuleName

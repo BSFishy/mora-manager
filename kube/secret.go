@@ -82,3 +82,13 @@ func (s *Secret) Ready(secret *corev1.Secret) bool {
 	// secrets are immediately available once create returns with no error
 	return true
 }
+
+func GetSecret(ctx context.Context, deps KubeContext, identifier string) ([]byte, error) {
+	secret := NewSecret(deps, identifier, nil)
+	res, err := secret.Get(ctx, deps)
+	if err != nil {
+		return nil, err
+	}
+
+	return res.Data[secretKey], nil
+}

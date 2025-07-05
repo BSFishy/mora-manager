@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/BSFishy/mora-manager/core"
 	"github.com/BSFishy/mora-manager/expr"
 	"github.com/BSFishy/mora-manager/point"
 	"github.com/BSFishy/mora-manager/util"
@@ -86,13 +87,20 @@ func (c *WingmanClient) GetConfigPoints(ctx context.Context, deps WingmanContext
 	return points, nil
 }
 
-func (c *WingmanClient) GetFunction(ctx context.Context, deps WingmanContext, name string, args expr.Args) (value.Value, []point.Point, error) {
+func (c *WingmanClient) GetFunction(ctx context.Context, deps interface {
+	WingmanContext
+	core.HasUser
+	core.HasEnvironment
+}, name string, args expr.Args,
+) (value.Value, []point.Point, error) {
 	state := deps.GetState()
 	moduleName := deps.GetModuleName()
 
 	bodyData := GetFunctionRequest{
-		ModuleName: moduleName,
-		State:      *state,
+		ModuleName:  moduleName,
+		State:       *state,
+		Username:    deps.GetUser(),
+		Environment: deps.GetEnvironment(),
 
 		FunctionName: name,
 		Args:         args,

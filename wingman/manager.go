@@ -8,7 +8,6 @@ import (
 	"github.com/BSFishy/mora-manager/core"
 	"github.com/BSFishy/mora-manager/expr"
 	"github.com/BSFishy/mora-manager/function"
-	"github.com/BSFishy/mora-manager/model"
 	"github.com/BSFishy/mora-manager/point"
 	"github.com/BSFishy/mora-manager/state"
 	"github.com/BSFishy/mora-manager/value"
@@ -24,8 +23,8 @@ func (m *Manager) GetWingmanManager() function.WingmanManager {
 }
 
 func (m *Manager) FindWingman(ctx context.Context, deps interface {
-	model.HasUser
-	model.HasEnvironment
+	core.HasUser
+	core.HasEnvironment
 	core.HasModuleName
 	core.HasServiceName
 	core.HasClientSet
@@ -37,11 +36,11 @@ func (m *Manager) FindWingman(ctx context.Context, deps interface {
 	moduleName := deps.GetModuleName()
 	serviceName := deps.GetServiceName()
 
-	namespace := fmt.Sprintf("%s-%s", user.Username, environment.Slug)
+	namespace := fmt.Sprintf("%s-%s", user, environment)
 	selector := labels.SelectorFromSet(map[string]string{
 		"mora.enabled":     "true",
-		"mora.user":        user.Username,
-		"mora.environment": environment.Slug,
+		"mora.user":        user,
+		"mora.environment": environment,
 		"mora.module":      moduleName,
 		"mora.service":     serviceName,
 		"mora.wingman":     "true",
@@ -78,8 +77,18 @@ func (m *Manager) FindWingman(ctx context.Context, deps interface {
 }
 
 type functionContext struct {
-	state      *state.State
-	moduleName string
+	user        string
+	environment string
+	state       *state.State
+	moduleName  string
+}
+
+func (f *functionContext) GetUser() string {
+	return f.user
+}
+
+func (f *functionContext) GetEnvironment() string {
+	return f.environment
 }
 
 func (f *functionContext) GetState() *state.State {
@@ -91,8 +100,8 @@ func (f *functionContext) GetModuleName() string {
 }
 
 func (m *Manager) EvaluateFunction(ctx context.Context, deps interface {
-	model.HasUser
-	model.HasEnvironment
+	core.HasUser
+	core.HasEnvironment
 	core.HasClientSet
 	state.HasState
 }, name string, args expr.Args,
@@ -101,11 +110,11 @@ func (m *Manager) EvaluateFunction(ctx context.Context, deps interface {
 	user := deps.GetUser()
 	environment := deps.GetEnvironment()
 
-	namespace := fmt.Sprintf("%s-%s", user.Username, environment.Slug)
+	namespace := fmt.Sprintf("%s-%s", user, environment)
 	selector := labels.SelectorFromSet(map[string]string{
 		"mora.enabled":     "true",
-		"mora.user":        user.Username,
-		"mora.environment": environment.Slug,
+		"mora.user":        user,
+		"mora.environment": environment,
 		"mora.wingman":     "true",
 	})
 
@@ -127,8 +136,10 @@ func (m *Manager) EvaluateFunction(ctx context.Context, deps interface {
 			}
 
 			svcDeps := &functionContext{
-				state:      deps.GetState(),
-				moduleName: svc.Labels["mora.module"],
+				user:        deps.GetUser(),
+				environment: deps.GetEnvironment(),
+				state:       deps.GetState(),
+				moduleName:  svc.Labels["mora.module"],
 			}
 
 			val, points, err := client.GetFunction(ctx, svcDeps, name, args)

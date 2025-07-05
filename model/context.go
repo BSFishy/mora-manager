@@ -30,11 +30,3 @@ func GetUser(ctx context.Context) (*User, bool) {
 	user, ok := ctx.Value(userKey).(*User)
 	return user, ok
 }
-
-type HasUser interface {
-	GetUser() *User
-}
-
-type HasEnvironment interface {
-	GetEnvironment() *Environment
-}

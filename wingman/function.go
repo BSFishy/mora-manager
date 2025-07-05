@@ -12,8 +12,10 @@ import (
 )
 
 type GetFunctionRequest struct {
-	ModuleName string
-	State      state.State
+	ModuleName  string
+	State       state.State
+	Username    string
+	Environment string
 
 	FunctionName string
 	Args         expr.Args
@@ -34,9 +36,12 @@ func (a *app) handleFunction(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	wingmanCtx := wingmanContext{
-		moduleName: body.ModuleName,
-		state:      &body.State,
-		registry:   a.registry,
+		client:      a.client,
+		moduleName:  body.ModuleName,
+		user:        body.Username,
+		environment: body.Environment,
+		state:       &body.State,
+		registry:    a.registry,
 	}
 
 	functions, err := a.wingman.GetFunctions(ctx, &wingmanCtx)
