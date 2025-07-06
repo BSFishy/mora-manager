@@ -51,7 +51,11 @@ func (c *WingmanClient) request(ctx context.Context, method, url string, body []
 		}
 
 		util.LogFromCtx(ctx).Debug("retrying wingman request", requestGroup, slog.Group("response", "status", statusCode))
-		time.Sleep(time.Second)
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(time.Second):
+		}
 	}
 
 	return nil, err

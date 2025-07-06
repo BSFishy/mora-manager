@@ -22,7 +22,29 @@ type Resource[T any] interface {
 	Ready(*T) bool
 }
 
+func pollReady[T any](ctx context.Context, deps KubeContext, res Resource[T], value *T) error {
+	for !res.Ready(value) {
+		util.LogFromCtx(ctx).Debug("waiting for resource to be ready")
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(500 * time.Millisecond):
+		}
+
+		var err error
+		value, err = res.Get(ctx, deps)
+		if err != nil {
+			return fmt.Errorf("re-fetching for readiness: %w", err)
+		}
+	}
+
+	return nil
+}
+
 func Deploy[T any](ctx context.Context, deps KubeContext, res Resource[T]) error {
+	ctx, cancel := context.WithTimeout(ctx, time.Minute)
+	defer cancel()
+
 	found, err := res.Get(ctx, deps)
 	if err == nil {
 		valid, err := res.IsValid(ctx, found)
@@ -31,7 +53,7 @@ func Deploy[T any](ctx context.Context, deps KubeContext, res Resource[T]) error
 		}
 
 		if valid {
-			return nil
+			return pollReady(ctx, deps, res, found)
 		}
 
 		if err = res.Delete(ctx, deps); err != nil {
@@ -43,7 +65,12 @@ func Deploy[T any](ctx context.Context, deps KubeContext, res Resource[T]) error
 			if errors.IsNotFound(err) {
 				break
 			}
-			time.Sleep(500 * time.Millisecond)
+
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(500 * time.Millisecond):
+			}
 		}
 	} else if !errors.IsNotFound(err) {
 		return fmt.Errorf("getting resource: %w", err)
@@ -54,17 +81,7 @@ func Deploy[T any](ctx context.Context, deps KubeContext, res Resource[T]) error
 		return fmt.Errorf("creating resource: %w", err)
 	}
 
-	for !res.Ready(created) {
-		util.LogFromCtx(ctx).Debug("waiting for resource to be ready")
-		time.Sleep(500 * time.Millisecond)
-
-		created, err = res.Get(ctx, deps)
-		if err != nil {
-			return fmt.Errorf("re-fetching for readiness: %w", err)
-		}
-	}
-
-	return nil
+	return pollReady(ctx, deps, res, created)
 }
 
 func namespace(deps interface {

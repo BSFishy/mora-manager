@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/BSFishy/mora-manager/config"
 	"github.com/BSFishy/mora-manager/kube"
@@ -20,6 +21,11 @@ func (a *App) deploy(d *model.Deployment) {
 
 	logger = logger.With("deployment", d.Id, "environment", d.EnvironmentId)
 	ctx = util.WithLogger(ctx, logger)
+
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	go a.handleDeployCancel(ctx, cancel, d)
 
 	err := a.db.Transact(ctx, func(tx *sql.Tx) error {
 		err := d.Lock(ctx, tx)
@@ -160,6 +166,12 @@ func (a *App) deploy(d *model.Deployment) {
 		return nil
 	})
 	if err != nil {
+		// we make errors crazy with more info. this just checks if the error chain
+		// terminates with a context canceled error
+		if strings.HasSuffix(err.Error(), context.Canceled.Error()) {
+			return
+		}
+
 		logger.Error("deployment failed", "err", err)
 
 		if err := d.UpdateStatusDb(ctx, a.db, model.Errored); err != nil {

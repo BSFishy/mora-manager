@@ -177,7 +177,10 @@ func (d *Deployment) Create(ctx context.Context, deps KubeContext) (*appsv1.Depl
 }
 
 func (d *Deployment) Ready(deployment *appsv1.Deployment) bool {
-	// NOTE: this assumes we will never have more than 1 replica. will need to
-	// change this when we support that.
-	return deployment.Status.ReadyReplicas == 1
+	replicas := int32(1)
+	if deployment.Spec.Replicas != nil {
+		replicas = *deployment.Spec.Replicas
+	}
+
+	return deployment.Status.ReadyReplicas == replicas
 }

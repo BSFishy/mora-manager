@@ -159,6 +159,20 @@ func (d *DB) GetDeployment(ctx context.Context, id string) (*Deployment, error) 
 	return nil, err
 }
 
+func (d *Deployment) IsCancelled(ctx context.Context, db *DB) (bool, error) {
+	var status DeploymentStatus
+	err := db.db.QueryRowContext(ctx, "SELECT status FROM deployments WHERE id = $1", d.Id).Scan(&status)
+	if err == nil {
+		return status == Cancelled, nil
+	}
+
+	if err == sql.ErrNoRows {
+		return true, nil
+	}
+
+	return false, err
+}
+
 func (d *Deployment) Lock(ctx context.Context, tx *sql.Tx) error {
 	_, err := tx.ExecContext(ctx, "SELECT pg_advisory_xact_lock($1)", hashStringToInt64(fmt.Sprintf("%s/%s", d.EnvironmentId, d.Id)))
 	if err != nil {
