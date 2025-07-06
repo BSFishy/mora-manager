@@ -16,5 +16,5 @@ type WingmanContext interface {
 
 type Wingman interface {
 	GetConfigPoints(context.Context, WingmanContext) ([]point.Point, error)
-	GetFunctions(context.Context, WingmanContext) (map[string]expr.ExpressionFunction, error)
+	GetFunctions() map[string]expr.ExpressionFunction
 }

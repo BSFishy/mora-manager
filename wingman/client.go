@@ -129,6 +129,9 @@ func (c *WingmanClient) GetFunction(ctx context.Context, deps interface {
 		return nil, nil, nil
 	}
 
+	// allow changing configs in wingmen
+	state.Configs = data.State.Configs
+
 	if len(data.ConfigPoints) > 0 {
 		return nil, data.ConfigPoints, nil
 	}

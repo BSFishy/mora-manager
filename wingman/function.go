@@ -25,6 +25,7 @@ type GetFunctionResponse struct {
 	Found        bool
 	ConfigPoints []point.Point
 	Value        json.RawMessage
+	State        state.State
 }
 
 func (a *app) handleFunction(w http.ResponseWriter, r *http.Request) error {
@@ -35,20 +36,17 @@ func (a *app) handleFunction(w http.ResponseWriter, r *http.Request) error {
 		return fmt.Errorf("decoding body: %w", err)
 	}
 
+	st := &body.State
 	wingmanCtx := wingmanContext{
 		client:      a.client,
 		moduleName:  body.ModuleName,
 		user:        body.Username,
 		environment: body.Environment,
-		state:       &body.State,
+		state:       st,
 		registry:    a.registry,
 	}
 
-	functions, err := a.wingman.GetFunctions(ctx, &wingmanCtx)
-	if err != nil {
-		return fmt.Errorf("getting config points: %w", err)
-	}
-
+	functions := a.wingman.GetFunctions()
 	response := GetFunctionResponse{}
 	for name, function := range functions {
 		if name != body.FunctionName {
@@ -60,13 +58,13 @@ func (a *app) handleFunction(w http.ResponseWriter, r *http.Request) error {
 			return errors.New("invalid args")
 		}
 
-		// TODO: stuff context with all the necessary things?
 		val, cfp, err := function.Evaluate(ctx, &wingmanCtx, body.Args)
 		if err != nil {
 			return fmt.Errorf("evaluating function: %w", err)
 		}
 
 		response.Found = true
+		response.State = *st
 		response.ConfigPoints = cfp
 
 		// TODO: properly handle nil val?
@@ -76,11 +74,10 @@ func (a *app) handleFunction(w http.ResponseWriter, r *http.Request) error {
 		}
 
 		response.Value = json
-
 		break
 	}
 
-	err = json.NewEncoder(w).Encode(response)
+	err := json.NewEncoder(w).Encode(response)
 	if err != nil {
 		return fmt.Errorf("encoding config points: %w", err)
 	}
