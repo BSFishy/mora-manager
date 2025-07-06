@@ -3,6 +3,7 @@ package kube
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	"github.com/BSFishy/mora-manager/core"
 	"github.com/BSFishy/mora-manager/def"
@@ -18,6 +19,7 @@ type Deployment struct {
 	moduleName  string
 	serviceName string
 	image       string
+	command     []string
 	env         []def.Env
 	isWingman   bool
 
@@ -27,7 +29,7 @@ type Deployment struct {
 func NewDeployment(deps interface {
 	core.HasModuleName
 	core.HasServiceName
-}, image string, env []def.Env, isWingman bool, serviceAccount string,
+}, image string, command []string, env []def.Env, isWingman bool, serviceAccount string,
 ) Resource[appsv1.Deployment] {
 	moduleName := deps.GetModuleName()
 	serviceName := deps.GetServiceName()
@@ -36,6 +38,7 @@ func NewDeployment(deps interface {
 		moduleName:     moduleName,
 		serviceName:    serviceName,
 		image:          image,
+		command:        command,
 		env:            env,
 		isWingman:      isWingman,
 		serviceAccount: serviceAccount,
@@ -67,6 +70,10 @@ func (d *Deployment) IsValid(ctx context.Context, deployment *appsv1.Deployment)
 
 	container := containers[0]
 	if container.Image != d.image {
+		return false, nil
+	}
+
+	if len(d.command) > 0 && !slices.Equal(container.Command, d.command) {
 		return false, nil
 	}
 
@@ -155,9 +162,10 @@ func (d *Deployment) Create(ctx context.Context, deps KubeContext) (*appsv1.Depl
 					ServiceAccountName: d.serviceAccount,
 					Containers: []corev1.Container{
 						{
-							Name:  util.SanitizeDNS1123Label(d.Name()),
-							Image: d.image,
-							Env:   env,
+							Name:    util.SanitizeDNS1123Label(d.Name()),
+							Image:   d.image,
+							Command: d.command,
+							Env:     env,
 						},
 					},
 				},

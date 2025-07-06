@@ -10,6 +10,7 @@ import (
 	"github.com/BSFishy/mora-manager/expr"
 	"github.com/BSFishy/mora-manager/point"
 	"github.com/BSFishy/mora-manager/state"
+	"github.com/BSFishy/mora-manager/util/shlex"
 	"github.com/BSFishy/mora-manager/value"
 	"k8s.io/client-go/kubernetes"
 )
@@ -22,6 +23,7 @@ type ServiceConfig struct {
 	ModuleName  string
 	ServiceName string
 	Image       expr.Expression
+	Command     *expr.Expression
 	Env         []api.Env
 
 	Wingman *ServiceWingman
@@ -101,6 +103,7 @@ func ServiceConfigFromModules(ctx context.Context, deps interface {
 				ModuleName:  module.Name,
 				ServiceName: service.Name,
 				Image:       service.Image,
+				Command:     service.Command,
 				Env:         service.Env,
 				Wingman:     wingman,
 			}
@@ -182,6 +185,26 @@ func (s *ServiceConfig) Evaluate(ctx context.Context, deps expr.EvaluationContex
 
 	configPoints = append(configPoints, imageCfp...)
 
+	var command []string
+	if s.Command != nil {
+		cmd, cmdCfp, err := s.Command.Evaluate(ctx, deps)
+		if err != nil {
+			return nil, nil, fmt.Errorf("evaluating command: %w", err)
+		}
+
+		if len(cmdCfp) == 0 && cmd.Kind() != value.String {
+			return nil, nil, errors.New("invalid command property")
+		}
+
+		configPoints = append(configPoints, cmdCfp...)
+		cmdString := cmd.String()
+
+		command, err = shlex.Split(cmdString)
+		if err != nil {
+			return nil, nil, fmt.Errorf("splitting command: %w", err)
+		}
+	}
+
 	envs := []MaterializedEnv{}
 	for _, e := range s.Env {
 		ev, envCfp, err := e.Value.Evaluate(ctx, deps)
@@ -211,7 +234,8 @@ func (s *ServiceConfig) Evaluate(ctx context.Context, deps expr.EvaluationContex
 	}
 
 	return &ServiceDefinition{
-		Image: image.String(),
-		Env:   envs,
+		Image:   image.String(),
+		Command: command,
+		Env:     envs,
 	}, configPoints, nil
 }

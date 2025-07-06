@@ -21,6 +21,7 @@ type ApiWingman struct {
 type Service struct {
 	Name     string            `json:"name"`
 	Image    expr.Expression   `json:"image"`
+	Command  *expr.Expression  `json:"command"`
 	Requires []expr.Expression `json:"requires"`
 	Wingman  *ApiWingman       `json:"wingman,omitempty"`
 	Env      []Env             `json:"env"`

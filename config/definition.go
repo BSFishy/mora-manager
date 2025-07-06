@@ -13,8 +13,9 @@ import (
 )
 
 type ServiceDefinition struct {
-	Image string
-	Env   []MaterializedEnv
+	Image   string
+	Command []string
+	Env     []MaterializedEnv
 }
 
 func (s *ServiceDefinition) Materialize(deps interface {
@@ -32,7 +33,7 @@ func (s *ServiceDefinition) Materialize(deps interface {
 
 	return &kube.MaterializedService{
 		Deployments: []kube.Resource[appsv1.Deployment]{
-			kube.NewDeployment(deps, s.Image, env, false, ""),
+			kube.NewDeployment(deps, s.Image, s.Command, env, false, ""),
 		},
 	}
 }
@@ -70,7 +71,8 @@ func (w *WingmanDefinition) MaterializeWingman(deps interface {
 			kube.NewServiceAccount(name),
 		},
 		Deployments: []kube.Resource[appsv1.Deployment]{
-			kube.NewDeployment(deps, w.Image, nil, true, name),
+			// TODO: support commands for wingmen
+			kube.NewDeployment(deps, w.Image, nil, nil, true, name),
 		},
 		Services: []kube.Resource[corev1.Service]{
 			kube.NewService(deps, true),
