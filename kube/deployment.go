@@ -56,7 +56,7 @@ func (d *Deployment) Get(ctx context.Context, deps KubeContext) (*appsv1.Deploym
 }
 
 func (d *Deployment) IsValid(ctx context.Context, deployment *appsv1.Deployment) (bool, error) {
-	if deployment.Spec.Template.Spec.ServiceAccountName != d.serviceAccount {
+	if d.serviceAccount != "" && deployment.Spec.Template.Spec.ServiceAccountName != d.serviceAccount {
 		return false, nil
 	}
 
@@ -79,7 +79,7 @@ func (d *Deployment) IsValid(ctx context.Context, deployment *appsv1.Deployment)
 		for _, ce := range container.Env {
 			if ce.Name == env.Name {
 				if env.Value.Kind() == value.Secret {
-					if ce.ValueFrom == nil || ce.ValueFrom.SecretKeyRef == nil || ce.ValueFrom.SecretKeyRef.Key != env.Value.String() {
+					if ce.ValueFrom == nil || ce.ValueFrom.SecretKeyRef == nil || ce.ValueFrom.SecretKeyRef.LocalObjectReference.Name != env.Value.String() {
 						return false, nil
 					}
 				} else {
