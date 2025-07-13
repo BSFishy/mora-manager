@@ -36,7 +36,7 @@ func NewConfigMap(deps interface {
 }
 
 func (c *ConfigMap) Name() string {
-	return util.SanitizeDNS1123Subdomain(fmt.Sprintf("%s-%s-%s", c.moduleName, c.serviceName, c.name))
+	return util.SanitizeDNS1123Label(fmt.Sprintf("%s-%s-%s", c.moduleName, c.serviceName, c.name))
 }
 
 func (c *ConfigMap) Get(ctx context.Context, deps KubeContext) (*corev1.ConfigMap, error) {
@@ -45,7 +45,7 @@ func (c *ConfigMap) Get(ctx context.Context, deps KubeContext) (*corev1.ConfigMa
 
 func (c *ConfigMap) Manifest(ctx context.Context, deps KubeContext) *corev1.ConfigMap {
 	labels := matchLabels(deps, map[string]string{
-		"name": c.name,
+		"name": util.SanitizeDNS1123Label(c.name),
 	})
 
 	config := &corev1.ConfigMap{

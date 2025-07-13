@@ -1,9 +1,12 @@
 package expr
 
 import (
+	"bytes"
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
+	"io"
 	"strconv"
 
 	"github.com/BSFishy/mora-manager/point"
@@ -107,6 +110,16 @@ func (a *Atom) Evaluate() (value.Value, error) {
 
 	if a.String != nil {
 		return value.NewString(*a.String), nil
+	}
+
+	if a.File != nil {
+		decoder := base64.NewDecoder(base64.StdEncoding, bytes.NewReader([]byte(*a.File)))
+		contents, err := io.ReadAll(decoder)
+		if err != nil {
+			return nil, fmt.Errorf("decoding file: %w", err)
+		}
+
+		return value.NewRaw(contents), nil
 	}
 
 	i, err := strconv.Atoi(*a.Number)
