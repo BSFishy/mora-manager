@@ -94,11 +94,12 @@ func (l ListExpression) Args() Args {
 type Atom struct {
 	Identifier *string `json:"identifier,omitempty"`
 	String     *string `json:"string,omitempty"`
+	File       *string `json:"file,omitempty"`
 	Number     *string `json:"number,omitempty"`
 }
 
 func (a *Atom) Evaluate() (value.Value, error) {
-	util.AssertEnum("invalid atom", a.Identifier, a.String, a.Number)
+	util.AssertEnum("invalid atom", a.Identifier, a.String, a.File, a.Number)
 
 	if a.Identifier != nil {
 		return value.NewIdentifier(*a.Identifier), nil

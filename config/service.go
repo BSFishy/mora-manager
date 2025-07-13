@@ -24,6 +24,7 @@ type ServiceConfig struct {
 	ServiceName string
 	Image       expr.Expression
 	Command     *expr.Expression
+	Configs     []api.ConfigMap
 	Env         []api.Env
 
 	Wingman *ServiceWingman
@@ -104,6 +105,7 @@ func ServiceConfigFromModules(ctx context.Context, deps interface {
 				ServiceName: service.Name,
 				Image:       service.Image,
 				Command:     service.Command,
+				Configs:     service.Configs,
 				Env:         service.Env,
 				Wingman:     wingman,
 			}
@@ -205,6 +207,38 @@ func (s *ServiceConfig) Evaluate(ctx context.Context, deps expr.EvaluationContex
 		}
 	}
 
+	configs := []ConfigMap{}
+	for _, c := range s.Configs {
+		path, pathCfp, err := c.Path.Evaluate(ctx, deps)
+		if err != nil {
+			return nil, nil, fmt.Errorf("evaluating config map: %w", err)
+		}
+
+		configPoints = append(configPoints, pathCfp...)
+
+		pathString, err := value.AsString(path)
+		if err != nil {
+			return nil, nil, fmt.Errorf("evaluating config map: %w", err)
+		}
+
+		file, fileCfp, err := c.File.Evaluate(ctx, deps)
+		if err != nil {
+			return nil, nil, fmt.Errorf("evaluating config map %s: %w", pathString, err)
+		}
+
+		configPoints = append(configPoints, fileCfp...)
+
+		rawFile, err := value.AsRaw(file)
+		if err != nil {
+			return nil, nil, fmt.Errorf("evaluating config map %s: %w", pathString, err)
+		}
+
+		configs = append(configs, ConfigMap{
+			Path: pathString,
+			File: rawFile,
+		})
+	}
+
 	envs := []MaterializedEnv{}
 	for _, e := range s.Env {
 		ev, envCfp, err := e.Value.Evaluate(ctx, deps)
@@ -236,6 +270,7 @@ func (s *ServiceConfig) Evaluate(ctx context.Context, deps expr.EvaluationContex
 	return &ServiceDefinition{
 		Image:   image.String(),
 		Command: command,
+		Configs: configs,
 		Env:     envs,
 	}, configPoints, nil
 }

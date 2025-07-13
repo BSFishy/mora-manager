@@ -14,6 +14,10 @@ func (i IntegerValue) Kind() Kind {
 	return Integer
 }
 
+func (i IntegerValue) Raw() []byte {
+	return nil
+}
+
 func (i IntegerValue) String() string {
 	return ""
 }

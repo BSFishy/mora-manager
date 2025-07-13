@@ -18,11 +18,17 @@ type ApiWingman struct {
 	Image expr.Expression
 }
 
+type ConfigMap struct {
+	Path expr.Expression `json:"path"`
+	File expr.Expression `json:"file"`
+}
+
 type Service struct {
 	Name     string            `json:"name"`
 	Image    expr.Expression   `json:"image"`
 	Command  *expr.Expression  `json:"command"`
 	Requires []expr.Expression `json:"requires"`
+	Configs  []ConfigMap       `json:"configs"`
 	Wingman  *ApiWingman       `json:"wingman,omitempty"`
 	Env      []Env             `json:"env"`
 }

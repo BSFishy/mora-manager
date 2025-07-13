@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"path"
 
 	"github.com/BSFishy/mora-manager/core"
 	"github.com/BSFishy/mora-manager/def"
@@ -12,9 +13,15 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 )
 
+type ConfigMap struct {
+	Path string
+	File []byte
+}
+
 type ServiceDefinition struct {
 	Image   string
 	Command []string
+	Configs []ConfigMap
 	Env     []MaterializedEnv
 }
 
@@ -31,9 +38,41 @@ func (s *ServiceDefinition) Materialize(deps interface {
 		}
 	}
 
+	// TODO: make this support also doing full directories and all that
+	mounts := make([]corev1.VolumeMount, len(s.Configs))
+	volumes := make([]corev1.Volume, len(s.Configs))
+	configMaps := make([]kube.Resource[corev1.ConfigMap], len(s.Configs))
+	for i, c := range s.Configs {
+		config := kube.NewConfigMap(deps, c.Path, c.File)
+		mounts[i] = corev1.VolumeMount{
+			Name:      config.Name(),
+			MountPath: path.Dir(c.Path),
+		}
+
+		volumes[i] = corev1.Volume{
+			Name: config.Name(),
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: config.Name(),
+					},
+					Items: []corev1.KeyToPath{
+						{
+							Key:  kube.ConfigKey,
+							Path: path.Base(c.Path),
+						},
+					},
+				},
+			},
+		}
+
+		configMaps[i] = config
+	}
+
 	return &kube.MaterializedService{
+		ConfigMaps: configMaps,
 		Deployments: []kube.Resource[appsv1.Deployment]{
-			kube.NewDeployment(deps, s.Image, s.Command, env, false, ""),
+			kube.NewDeployment(deps, s.Image, s.Command, env, false, "", mounts, volumes),
 		},
 	}
 }
@@ -72,7 +111,7 @@ func (w *WingmanDefinition) MaterializeWingman(deps interface {
 		},
 		Deployments: []kube.Resource[appsv1.Deployment]{
 			// TODO: support commands for wingmen
-			kube.NewDeployment(deps, w.Image, nil, nil, true, name),
+			kube.NewDeployment(deps, w.Image, nil, nil, true, name, nil, nil),
 		},
 		Services: []kube.Resource[corev1.Service]{
 			kube.NewService(deps, true),

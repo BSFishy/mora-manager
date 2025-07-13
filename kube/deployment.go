@@ -3,7 +3,6 @@ package kube
 import (
 	"context"
 	"fmt"
-	"slices"
 
 	"github.com/BSFishy/mora-manager/core"
 	"github.com/BSFishy/mora-manager/def"
@@ -21,6 +20,8 @@ type Deployment struct {
 	image       string
 	command     []string
 	env         []def.Env
+	mounts      []corev1.VolumeMount
+	volumes     []corev1.Volume
 	isWingman   bool
 
 	serviceAccount string
@@ -29,7 +30,7 @@ type Deployment struct {
 func NewDeployment(deps interface {
 	core.HasModuleName
 	core.HasServiceName
-}, image string, command []string, env []def.Env, isWingman bool, serviceAccount string,
+}, image string, command []string, env []def.Env, isWingman bool, serviceAccount string, mounts []corev1.VolumeMount, volumes []corev1.Volume,
 ) Resource[appsv1.Deployment] {
 	moduleName := deps.GetModuleName()
 	serviceName := deps.GetServiceName()
@@ -40,6 +41,8 @@ func NewDeployment(deps interface {
 		image:          image,
 		command:        command,
 		env:            env,
+		mounts:         mounts,
+		volumes:        volumes,
 		isWingman:      isWingman,
 		serviceAccount: serviceAccount,
 	}
@@ -58,61 +61,7 @@ func (d *Deployment) Get(ctx context.Context, deps KubeContext) (*appsv1.Deploym
 	return deps.GetClientset().AppsV1().Deployments(namespace(deps)).Get(ctx, d.Name(), metav1.GetOptions{})
 }
 
-func (d *Deployment) IsValid(ctx context.Context, deployment *appsv1.Deployment) (bool, error) {
-	if d.serviceAccount != "" && deployment.Spec.Template.Spec.ServiceAccountName != d.serviceAccount {
-		return false, nil
-	}
-
-	containers := deployment.Spec.Template.Spec.Containers
-	if len(containers) != 1 {
-		return false, nil
-	}
-
-	container := containers[0]
-	if container.Image != d.image {
-		return false, nil
-	}
-
-	if len(d.command) > 0 && !slices.Equal(container.Command, d.command) {
-		return false, nil
-	}
-
-	if len(container.Env) != len(d.env) {
-		return false, nil
-	}
-
-	for _, env := range d.env {
-		found := false
-		for _, ce := range container.Env {
-			if ce.Name == env.Name {
-				if env.Value.Kind() == value.Secret {
-					if ce.ValueFrom == nil || ce.ValueFrom.SecretKeyRef == nil || ce.ValueFrom.SecretKeyRef.LocalObjectReference.Name != env.Value.String() {
-						return false, nil
-					}
-				} else {
-					if ce.Value != env.Value.String() {
-						return false, nil
-					}
-				}
-
-				found = true
-				break
-			}
-		}
-
-		if !found {
-			return false, nil
-		}
-	}
-
-	return true, nil
-}
-
-func (d *Deployment) Delete(ctx context.Context, deps KubeContext) error {
-	return deps.GetClientset().AppsV1().Deployments(namespace(deps)).Delete(ctx, d.Name(), metav1.DeleteOptions{})
-}
-
-func (d *Deployment) Create(ctx context.Context, deps KubeContext) (*appsv1.Deployment, error) {
+func (d *Deployment) Manifest(ctx context.Context, deps KubeContext) *appsv1.Deployment {
 	extras := map[string]string{}
 	if d.isWingman {
 		extras["mora.wingman"] = "true"
@@ -147,6 +96,7 @@ func (d *Deployment) Create(ctx context.Context, deps KubeContext) (*appsv1.Depl
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: namespace(deps),
 			Name:      d.Name(),
+			Labels:    labels,
 		},
 		Spec: appsv1.DeploymentSpec{
 			Selector: &metav1.LabelSelector{
@@ -162,17 +112,28 @@ func (d *Deployment) Create(ctx context.Context, deps KubeContext) (*appsv1.Depl
 					ServiceAccountName: d.serviceAccount,
 					Containers: []corev1.Container{
 						{
-							Name:    util.SanitizeDNS1123Label(d.Name()),
-							Image:   d.image,
-							Command: d.command,
-							Env:     env,
+							Name:         util.SanitizeDNS1123Label(d.Name()),
+							Image:        d.image,
+							Command:      d.command,
+							Env:          env,
+							VolumeMounts: d.mounts,
 						},
 					},
+					Volumes: d.volumes,
 				},
 			},
 		},
 	}
 
+	return deployment
+}
+
+func (d *Deployment) Delete(ctx context.Context, deps KubeContext) error {
+	return deps.GetClientset().AppsV1().Deployments(namespace(deps)).Delete(ctx, d.Name(), metav1.DeleteOptions{})
+}
+
+func (d *Deployment) Create(ctx context.Context, deps KubeContext) (*appsv1.Deployment, error) {
+	deployment := d.Manifest(ctx, deps)
 	return deps.GetClientset().AppsV1().Deployments(namespace(deps)).Create(ctx, deployment, metav1.CreateOptions{})
 }
 

@@ -3,7 +3,6 @@ package kube
 import (
 	"context"
 	"fmt"
-	"slices"
 
 	"github.com/BSFishy/mora-manager/core"
 	"github.com/BSFishy/mora-manager/util"
@@ -40,24 +39,7 @@ func (s *Secret) Get(ctx context.Context, deps KubeContext) (*corev1.Secret, err
 	return deps.GetClientset().CoreV1().Secrets(namespace(deps)).Get(ctx, s.Name(), metav1.GetOptions{})
 }
 
-func (s *Secret) IsValid(ctx context.Context, secret *corev1.Secret) (bool, error) {
-	data, ok := secret.Data[secretKey]
-	if !ok {
-		return false, nil
-	}
-
-	if slices.Compare(data, s.value) != 0 {
-		return false, nil
-	}
-
-	return true, nil
-}
-
-func (s *Secret) Delete(ctx context.Context, deps KubeContext) error {
-	return deps.GetClientset().CoreV1().Secrets(namespace(deps)).Delete(ctx, s.Name(), metav1.DeleteOptions{})
-}
-
-func (s *Secret) Create(ctx context.Context, deps KubeContext) (*corev1.Secret, error) {
+func (s *Secret) Manifest(ctx context.Context, deps KubeContext) *corev1.Secret {
 	labels := matchLabels(deps, map[string]string{
 		"mora.identifier": s.identifier,
 	})
@@ -75,6 +57,15 @@ func (s *Secret) Create(ctx context.Context, deps KubeContext) (*corev1.Secret, 
 		Type: corev1.SecretTypeOpaque,
 	}
 
+	return secret
+}
+
+func (s *Secret) Delete(ctx context.Context, deps KubeContext) error {
+	return deps.GetClientset().CoreV1().Secrets(namespace(deps)).Delete(ctx, s.Name(), metav1.DeleteOptions{})
+}
+
+func (s *Secret) Create(ctx context.Context, deps KubeContext) (*corev1.Secret, error) {
+	secret := s.Manifest(ctx, deps)
 	return deps.GetClientset().CoreV1().Secrets(namespace(deps)).Create(ctx, secret, metav1.CreateOptions{})
 }
 

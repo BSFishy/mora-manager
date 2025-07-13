@@ -16,6 +16,10 @@ func (i IdentifierValue) Kind() Kind {
 	return Identifier
 }
 
+func (i IdentifierValue) Raw() []byte {
+	return []byte(i.value)
+}
+
 func (i IdentifierValue) String() string {
 	return i.value
 }

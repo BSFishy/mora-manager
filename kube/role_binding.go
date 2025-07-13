@@ -29,30 +29,7 @@ func (r *RoleBinding) Get(ctx context.Context, deps KubeContext) (*rbacv1.RoleBi
 	return deps.GetClientset().RbacV1().RoleBindings(namespace(deps)).Get(ctx, r.Name(), metav1.GetOptions{})
 }
 
-func (r *RoleBinding) IsValid(ctx context.Context, binding *rbacv1.RoleBinding) (bool, error) {
-	subjects := binding.Subjects
-	if len(subjects) != 1 {
-		return false, nil
-	}
-
-	subject := subjects[0]
-	if subject.Kind != "ServiceAccount" || subject.Name != r.serviceAccount {
-		return false, nil
-	}
-
-	role := binding.RoleRef
-	if role.Kind != "Role" || role.Name != r.role {
-		return false, nil
-	}
-
-	return true, nil
-}
-
-func (r *RoleBinding) Delete(ctx context.Context, deps KubeContext) error {
-	return deps.GetClientset().RbacV1().RoleBindings(namespace(deps)).Delete(ctx, r.Name(), metav1.DeleteOptions{})
-}
-
-func (r *RoleBinding) Create(ctx context.Context, deps KubeContext) (*rbacv1.RoleBinding, error) {
+func (r *RoleBinding) Manifest(ctx context.Context, deps KubeContext) *rbacv1.RoleBinding {
 	labels := matchLabels(deps, map[string]string{
 		"mora.name": r.name,
 	})
@@ -76,6 +53,15 @@ func (r *RoleBinding) Create(ctx context.Context, deps KubeContext) (*rbacv1.Rol
 		},
 	}
 
+	return binding
+}
+
+func (r *RoleBinding) Delete(ctx context.Context, deps KubeContext) error {
+	return deps.GetClientset().RbacV1().RoleBindings(namespace(deps)).Delete(ctx, r.Name(), metav1.DeleteOptions{})
+}
+
+func (r *RoleBinding) Create(ctx context.Context, deps KubeContext) (*rbacv1.RoleBinding, error) {
+	binding := r.Manifest(ctx, deps)
 	return deps.GetClientset().RbacV1().RoleBindings(namespace(deps)).Create(ctx, binding, metav1.CreateOptions{})
 }
 

@@ -10,6 +10,10 @@ func (n NullValue) Kind() Kind {
 	return Null
 }
 
+func (n NullValue) Raw() []byte {
+	return nil
+}
+
 func (n NullValue) String() string {
 	return ""
 }

@@ -14,6 +14,10 @@ func (s SecretValue) Kind() Kind {
 	return Secret
 }
 
+func (s SecretValue) Raw() []byte {
+	return nil
+}
+
 func (s SecretValue) String() string {
 	return s.value
 }

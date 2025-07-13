@@ -16,7 +16,7 @@ import (
 type Resource[T any] interface {
 	Name() string
 	Get(context.Context, KubeContext) (*T, error)
-	IsValid(context.Context, *T) (bool, error)
+	Manifest(context.Context, KubeContext) *T
 	Delete(context.Context, KubeContext) error
 	Create(context.Context, KubeContext) (*T, error)
 	Ready(*T) bool
@@ -47,14 +47,13 @@ func Deploy[T any](ctx context.Context, deps KubeContext, res Resource[T]) error
 
 	found, err := res.Get(ctx, deps)
 	if err == nil {
-		valid, err := res.IsValid(ctx, found)
-		if err != nil {
-			return fmt.Errorf("checking validity: %w", err)
-		}
-
+		manifest := res.Manifest(ctx, deps)
+		valid, err := util.MatchDefinition(found, manifest)
 		if valid {
 			return pollReady(ctx, deps, res, found)
 		}
+
+		util.LogFromCtx(ctx).Debug("recreating resource", "reason", err)
 
 		if err = res.Delete(ctx, deps); err != nil {
 			return fmt.Errorf("deleting resource: %w", err)

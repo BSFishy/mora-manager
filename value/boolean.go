@@ -14,6 +14,10 @@ func (b BooleanValue) Kind() Kind {
 	return Boolean
 }
 
+func (b BooleanValue) Raw() []byte {
+	return nil
+}
+
 func (b BooleanValue) String() string {
 	return ""
 }

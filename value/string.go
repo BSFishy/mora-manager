@@ -18,6 +18,10 @@ func (s StringValue) Kind() Kind {
 	return String
 }
 
+func (s StringValue) Raw() []byte {
+	return []byte(s.value)
+}
+
 func (s StringValue) String() string {
 	return s.value
 }

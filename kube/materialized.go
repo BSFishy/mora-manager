@@ -9,6 +9,7 @@ import (
 )
 
 type MaterializedService struct {
+	ConfigMaps  []Resource[corev1.ConfigMap]
 	Deployments []Resource[appsv1.Deployment]
 	Services    []Resource[corev1.Service]
 	Secrets     []Resource[corev1.Secret]
@@ -28,6 +29,10 @@ func (m *MaterializedService) Deploy(ctx context.Context, deps KubeContext) erro
 	}
 
 	if err := deployAll(ctx, deps, m.ServiceAccounts); err != nil {
+		return err
+	}
+
+	if err := deployAll(ctx, deps, m.ConfigMaps); err != nil {
 		return err
 	}
 

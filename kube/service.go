@@ -45,35 +45,7 @@ func (s *Service) Get(ctx context.Context, deps KubeContext) (*corev1.Service, e
 	return deps.GetClientset().CoreV1().Services(namespace(deps)).Get(ctx, s.Name(), metav1.GetOptions{})
 }
 
-// TODO: support non-wingman
-func (s *Service) IsValid(ctx context.Context, service *corev1.Service) (bool, error) {
-	if !s.isWingman {
-		return true, nil
-	}
-
-	ports := service.Spec.Ports
-	if len(ports) != 1 {
-		return false, nil
-	}
-
-	port := ports[0]
-	if port.Port != 8080 || port.TargetPort.IntValue() != 8080 {
-		return false, nil
-	}
-
-	return true, nil
-}
-
-func (s *Service) Delete(ctx context.Context, deps KubeContext) error {
-	return deps.GetClientset().CoreV1().Services(namespace(deps)).Delete(ctx, s.Name(), metav1.DeleteOptions{})
-}
-
-// TODO: support non-wingman
-func (s *Service) Create(ctx context.Context, deps KubeContext) (*corev1.Service, error) {
-	if !s.isWingman {
-		return nil, nil
-	}
-
+func (s *Service) Manifest(ctx context.Context, deps KubeContext) *corev1.Service {
 	labels := matchLabels(deps, map[string]string{
 		"mora.wingman": "true",
 	})
@@ -94,6 +66,20 @@ func (s *Service) Create(ctx context.Context, deps KubeContext) (*corev1.Service
 		},
 	}
 
+	return service
+}
+
+func (s *Service) Delete(ctx context.Context, deps KubeContext) error {
+	return deps.GetClientset().CoreV1().Services(namespace(deps)).Delete(ctx, s.Name(), metav1.DeleteOptions{})
+}
+
+// TODO: support non-wingman
+func (s *Service) Create(ctx context.Context, deps KubeContext) (*corev1.Service, error) {
+	if !s.isWingman {
+		return nil, nil
+	}
+
+	service := s.Manifest(ctx, deps)
 	return deps.GetClientset().CoreV1().Services(namespace(deps)).Create(ctx, service, metav1.CreateOptions{})
 }
 

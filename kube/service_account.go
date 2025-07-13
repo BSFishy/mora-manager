@@ -25,15 +25,7 @@ func (s *ServiceAccount) Get(ctx context.Context, deps KubeContext) (*corev1.Ser
 	return deps.GetClientset().CoreV1().ServiceAccounts(namespace(deps)).Get(ctx, s.Name(), metav1.GetOptions{})
 }
 
-func (s *ServiceAccount) IsValid(ctx context.Context, account *corev1.ServiceAccount) (bool, error) {
-	return true, nil
-}
-
-func (s *ServiceAccount) Delete(ctx context.Context, deps KubeContext) error {
-	return deps.GetClientset().CoreV1().ServiceAccounts(namespace(deps)).Delete(ctx, s.Name(), metav1.DeleteOptions{})
-}
-
-func (s *ServiceAccount) Create(ctx context.Context, deps KubeContext) (*corev1.ServiceAccount, error) {
+func (s *ServiceAccount) Manifest(ctx context.Context, deps KubeContext) *corev1.ServiceAccount {
 	labels := matchLabels(deps, map[string]string{
 		"mora.name": s.name,
 	})
@@ -45,6 +37,15 @@ func (s *ServiceAccount) Create(ctx context.Context, deps KubeContext) (*corev1.
 		},
 	}
 
+	return account
+}
+
+func (s *ServiceAccount) Delete(ctx context.Context, deps KubeContext) error {
+	return deps.GetClientset().CoreV1().ServiceAccounts(namespace(deps)).Delete(ctx, s.Name(), metav1.DeleteOptions{})
+}
+
+func (s *ServiceAccount) Create(ctx context.Context, deps KubeContext) (*corev1.ServiceAccount, error) {
+	account := s.Manifest(ctx, deps)
 	return deps.GetClientset().CoreV1().ServiceAccounts(namespace(deps)).Create(ctx, account, metav1.CreateOptions{})
 }
 

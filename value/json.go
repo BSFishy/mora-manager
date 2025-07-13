@@ -24,6 +24,13 @@ func Unmarshal(data json.RawMessage) (Value, error) {
 	}
 
 	switch raw.Kind {
+	case Raw:
+		value, ok := raw.Value.([]byte)
+		if !ok {
+			return nil, fmt.Errorf("failed to decode raw value as byte array")
+		}
+
+		return NewRaw(value), nil
 	case Boolean:
 		value, ok := raw.Value.(bool)
 		if !ok {

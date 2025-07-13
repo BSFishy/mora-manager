@@ -18,6 +18,10 @@ func (s ServiceReferenceValue) Kind() Kind {
 	return ServiceReference
 }
 
+func (s ServiceReferenceValue) Raw() []byte {
+	return nil
+}
+
 func (s ServiceReferenceValue) String() string {
 	return ""
 }

@@ -1,41 +1,26 @@
 package value
 
-type Kind int
+type Kind string
 
 const (
-	Null Kind = iota
-	String
-	Identifier
-	Secret
-	Boolean
-	Integer
-	ServiceReference
+	Null             Kind = "null"
+	Raw              Kind = "raw"
+	String           Kind = "string"
+	Identifier       Kind = "identifier"
+	Secret           Kind = "secret"
+	Boolean          Kind = "boolean"
+	Integer          Kind = "integer"
+	ServiceReference Kind = "service_reference"
 )
 
 func (k Kind) String() string {
-	switch k {
-	case Null:
-		return "null"
-	case String:
-		return "string"
-	case Identifier:
-		return "identifier"
-	case Secret:
-		return "secret"
-	case Boolean:
-		return "boolean"
-	case Integer:
-		return "integer"
-	case ServiceReference:
-		return "service reference"
-	}
-
-	panic("unknown value kind")
+	return string(k)
 }
 
 type Value interface {
 	Kind() Kind
 
+	Raw() []byte
 	String() string
 	Boolean() bool
 	Integer() int
